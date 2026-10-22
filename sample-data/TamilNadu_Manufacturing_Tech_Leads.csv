@@ -1,0 +1,8 @@
+Customer Name,Company Name,Email,Phone,Industry,Location,Fleet Size,Current System,Identified Problem
+Ramesh Sundaram,Apex Logistics & Freight India,ramesh.s@apexlogistics.in,+919840123456,Logistics & Supply Chain,"Chennai, Tamil Nadu",65 Trucks,Manual Excel Spreadsheets,Consignment delays and manual telephone order status inquiries
+Dr. Kavitha Mohan,CareFirst Multi-Speciality Clinics,kavitha.m@carefirstclinics.org,+919884567890,Healthcare Services,"Coimbatore, Tamil Nadu",N/A,Paper registers and WhatsApp,Patient scheduling mix-ups and delayed diagnostic report sharing
+Venkatesh Babu,Sri Krishna Textiles & Garments,v.babu@srikrishnatex.com,+919443123890,Textiles & Apparel Manufacturing,"Tirupur, Tamil Nadu",N/A,Legacy static website from 2018,Lack of international buyer discovery and zero web inquiries
+Arjun Swaminathan,Zenith FinServe Capital,arjun@zenithfinserve.co.in,+919820543210,Financial Services & Wealth Management,"Bangalore, Karnataka",N/A,Desktop CRM and spreadsheets,Manual KYC extraction taking 4 days per loan applicant
+Meenakshi Sundaram,Kaveri Agro Tech & Food Processing,meenakshi@kaveriagro.com,+919789012345,Agriculture & Food Processing,"Madurai, Tamil Nadu",18 delivery vans,Tally and manual daily WhatsApp reports,No centralized revenue and stock inventory visibility across 32 stores
+Ramesh Sundaram (Duplicate),Apex Logistics & Freight India,ramesh.s@apexlogistics.in,+919840123456,Logistics & Supply Chain,"Chennai, Tamil Nadu",65 Trucks,Manual Excel Spreadsheets,Duplicate entry testing
+Subramaniam Chettiar,Chettinad Heritage Exports,invalid-email-format-without-at,,Export & Handicrafts,"Karaikudi, Tamil Nadu",N/A,None,Missing contact coordinates and invalid email format

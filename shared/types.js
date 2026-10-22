@@ -1,0 +1,3 @@
+// QUENOXA AI BUSINESS INTELLIGENCE & SALES AUTOMATION PLATFORM
+// Shared Data Types and Contracts
+export {};

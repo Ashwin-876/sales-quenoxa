@@ -1,0 +1,16 @@
+{
+  "name": "quenoxa-sales-platform",
+  "version": "1.0.0",
+  "description": "Quenoxa AI Business Intelligence & Sales Automation Platform",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "dev": "npx concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT\" -c \"cyan.bold,green.bold\" \"npm run server\" \"npm run client\"",
+    "build": "cd client && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.5"
+  }
+}
