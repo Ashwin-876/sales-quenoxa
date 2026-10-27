@@ -65,9 +65,13 @@ export const UploadDocumentsView: React.FC<UploadDocumentsViewProps> = ({
       await loadFiles();
       onRefreshMetrics();
     } catch (err: any) {
+      const errMsg = err?.message || '';
+      const isConnectionIssue = errMsg.includes('503') || errMsg.includes('405') || errMsg.includes('timed out') || errMsg.includes('Failed to fetch');
       setUploadMessage({
         type: 'error',
-        text: err?.message || 'Failed to upload and parse documents.'
+        text: isConnectionIssue
+          ? 'Live backend is not connected to this static preview. To process live documents with SQLite & Tesseract OCR, open http://localhost:3000 on your machine, or link your cloud backend.'
+          : (errMsg || 'Failed to upload and parse documents.')
       });
     } finally {
       setIsUploading(false);
