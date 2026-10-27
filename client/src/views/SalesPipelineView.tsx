@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   KanbanSquare,
-  DollarSign,
+  IndianRupee,
   ChevronLeft,
   ChevronRight,
   PhoneCall,
@@ -75,7 +75,7 @@ export const SalesPipelineView: React.FC<SalesPipelineViewProps> = ({
   const totalValue = leads.reduce((acc, curr) => acc + (Number(curr.pipelineValue) || 0), 0);
 
   return (
-    <div className="p-8 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-[1600px] mx-auto">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
@@ -85,10 +85,11 @@ export const SalesPipelineView: React.FC<SalesPipelineViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center space-x-3 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-xs">
+        <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-xs">
+          <IndianRupee className="w-4 h-4 text-emerald-600" />
           <span className="text-xs text-slate-500 font-medium">Cumulative Pipeline:</span>
           <span className="text-sm font-extrabold text-emerald-700 font-mono">
-            ${totalValue.toLocaleString()}
+            ₹{totalValue.toLocaleString('en-IN')}
           </span>
         </div>
       </div>
@@ -116,7 +117,7 @@ export const SalesPipelineView: React.FC<SalesPipelineViewProps> = ({
                   <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
                     <span>Est. Value</span>
                     <span className="font-semibold text-slate-800 font-mono">
-                      ${colValue.toLocaleString()}
+                      ₹{colValue.toLocaleString('en-IN')}
                     </span>
                   </div>
                 </div>
@@ -150,7 +151,7 @@ export const SalesPipelineView: React.FC<SalesPipelineViewProps> = ({
 
                         <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
                           <span className="text-xs font-extrabold text-slate-900 font-mono">
-                            ${Number(lead.pipelineValue || 0).toLocaleString()}
+                            ₹{Number(lead.pipelineValue || 0).toLocaleString('en-IN')}
                           </span>
 
                           {/* Move stage controls */}

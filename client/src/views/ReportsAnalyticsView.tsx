@@ -51,7 +51,7 @@ export const ReportsAnalyticsView: React.FC<ReportsAnalyticsViewProps> = ({ metr
         ['Rejected Proposals (Lost)', metrics.lostOpportunities.toString(), 'Final rejected solution proposals'],
         ['Actual Acceptance Rate', `${metrics.actualAcceptanceRate}%`, 'Accepted / (Accepted + Rejected) * 100 (Excludes pending)'],
         ['Lead Conversion Rate', `${metrics.leadConversionRate}%`, 'Won / Qualified Leads * 100'],
-        ['Active Sales Pipeline Value', `$${metrics.totalPipelineValue.toLocaleString()}`, 'Sum of active non-lost deals']
+        ['Active Sales Pipeline Value', `₹${metrics.totalPipelineValue.toLocaleString('en-IN')}`, 'Sum of active non-lost deals (INR)']
       ],
       theme: 'grid',
       headStyles: { fillColor: [5, 150, 105] },
@@ -84,7 +84,7 @@ export const ReportsAnalyticsView: React.FC<ReportsAnalyticsViewProps> = ({ metr
   }
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>

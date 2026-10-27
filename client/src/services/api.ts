@@ -21,7 +21,9 @@ import {
   IndustryCatalogueItem
 } from '../../../shared/types.js';
 
-const API_BASE = '/api/v1';
+const API_BASE = import.meta.env.VITE_API_BASE_URL
+  ? `${import.meta.env.VITE_API_BASE_URL.replace(/\/+$/, '')}/api/v1`
+  : '/api/v1';
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, options);
@@ -55,18 +57,49 @@ export const api = {
   deleteFile: (id: string) => fetchJson<{ success: boolean }>(`${API_BASE}/files/${id}`, { method: 'DELETE' }),
 
   // Records
-  getRecords: (params?: { fileId?: string; search?: string; status?: string; duplicateOnly?: boolean; missingOnly?: boolean; limit?: number; offset?: number }) => {
+  getRecords: (params?: { fileId?: string; search?: string; status?: string; duplicateOnly?: boolean; missingOnly?: boolean; callStatus?: string; crmStatus?: string; limit?: number; offset?: number }) => {
     const sp = new URLSearchParams();
     if (params?.fileId) sp.set('fileId', params.fileId);
     if (params?.search) sp.set('search', params.search);
     if (params?.status) sp.set('status', params.status);
     if (params?.duplicateOnly) sp.set('duplicateOnly', 'true');
     if (params?.missingOnly) sp.set('missingOnly', 'true');
+    if (params?.callStatus && params.callStatus !== 'all') sp.set('callStatus', params.callStatus);
+    if (params?.crmStatus && params.crmStatus !== 'all') sp.set('crmStatus', params.crmStatus);
     if (params?.limit) sp.set('limit', String(params.limit));
     if (params?.offset) sp.set('offset', String(params.offset));
-    return fetchJson<{ records: ExtractedRecord[]; totalCount: number }>(`${API_BASE}/records?${sp.toString()}`);
+    return fetchJson<{
+      records: ExtractedRecord[];
+      totalCount: number;
+      callsCompletedCount: number;
+      callsPendingCount: number;
+      crmCounts?: { total: number; pending: number; accepted: number; rejected: number; inCrm: number };
+    }>(`${API_BASE}/records?${sp.toString()}`);
   },
   getRecordById: (id: string) => fetchJson<ExtractedRecord>(`${API_BASE}/records/${id}`),
+  updateRecordCallStatus: (id: string, callCompleted: boolean) =>
+    fetchJson<{ success: boolean; id: string; callCompleted: boolean; callCompletedAt: string | null }>(
+      `${API_BASE}/records/${id}/call-status`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ callCompleted }),
+      }
+    ),
+  acceptRecord: (id: string) =>
+    fetchJson<{ success: boolean; message: string; leadId: string; crmStatus: string }>(
+      `${API_BASE}/records/${id}/accept`,
+      { method: 'POST' }
+    ),
+  rejectRecord: (id: string, reason?: string) =>
+    fetchJson<{ success: boolean; message: string; crmStatus: string }>(
+      `${API_BASE}/records/${id}/reject`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason || '' })
+      }
+    ),
   addRecordToCrm: (id: string, data?: { pipelineStage?: string; pipelineValue?: number; recommendedService?: string }) =>
     fetchJson<{ success: boolean; leadId: string }>(`${API_BASE}/records/${id}/to-crm`, {
       method: 'POST',
@@ -83,7 +116,12 @@ export const api = {
   // AI Analysis & Recommendations
   getCustomerAnalysis: (recordId: string, forceFresh?: boolean) =>
     fetchJson<CustomerAnalysis>(`${API_BASE}/analysis/${recordId}${forceFresh ? '?forceFresh=true' : ''}`),
-  getServiceRecommendations: (recordId: string) => fetchJson<ServiceRecommendation[]>(`${API_BASE}/analysis/${recordId}/services`),
+  getServiceRecommendations: (recordId: string, options?: { signal?: AbortSignal; forceFresh?: boolean }) => {
+    const query = options?.forceFresh ? '?forceFresh=true' : '';
+    return fetchJson<ServiceRecommendation[]>(`${API_BASE}/analysis/${recordId}/services${query}`, {
+      signal: options?.signal
+    });
+  },
   updateRecommendationStatus: (id: string, status: string, notes?: string) =>
     fetchJson<{ success: boolean }>(`${API_BASE}/recommendations/${id}/status`, {
       method: 'PUT',
@@ -193,7 +231,13 @@ export const api = {
     fetchJson<{ success: boolean }>(`${API_BASE}/industries/${id}`, { method: 'DELETE' }),
 
   // Dashboard & Analytics
-  getDashboardMetrics: () => fetchJson<DashboardMetrics>(`${API_BASE}/analytics/dashboard`),
+  getDashboardMetrics: (params?: { timeRange?: string; solutionFilter?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.timeRange) sp.set('timeRange', params.timeRange);
+    if (params?.solutionFilter) sp.set('solutionFilter', params.solutionFilter);
+    const q = sp.toString() ? `?${sp.toString()}` : '';
+    return fetchJson<DashboardMetrics>(`${API_BASE}/analytics/dashboard${q}`);
+  },
 
   // Settings
   getSettings: () => fetchJson<SystemSettings>(`${API_BASE}/settings`),

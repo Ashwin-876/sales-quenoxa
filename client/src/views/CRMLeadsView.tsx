@@ -3,7 +3,7 @@ import {
   Users2,
   Search,
   Filter,
-  DollarSign,
+  IndianRupee,
   PhoneCall,
   MessageSquare,
   Mail,
@@ -137,7 +137,7 @@ export const CRMLeadsView: React.FC<CRMLeadsViewProps> = ({
   };
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
@@ -313,6 +313,9 @@ export const CRMLeadsView: React.FC<CRMLeadsViewProps> = ({
                         <span className="font-semibold text-emerald-800 text-[11px] block">
                           {lead.recommendedService || lead.proposedService || 'Custom Automation'}
                         </span>
+                        <span className="text-[10px] font-mono font-bold text-slate-500">
+                          ₹{Number(lead.pipelineValue || 0).toLocaleString('en-IN')}
+                        </span>
                       </td>
 
                       {/* 11. Lead Priority */}
@@ -392,7 +395,7 @@ export const CRMLeadsView: React.FC<CRMLeadsViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Deal Value ($ USD):</label>
+                  <label className="font-bold text-slate-700 block mb-1">Deal Value (₹ INR):</label>
                   <input
                     type="number"
                     value={editingLead.pipelineValue}

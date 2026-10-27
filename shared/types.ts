@@ -5,15 +5,19 @@ export type PipelineStage =
   | 'New'
   | 'Research pending'
   | 'Analysed'
+  | 'Analyzed'
   | 'Contact pending'
   | 'Contacted'
   | 'Interested'
   | 'Meeting scheduled'
+  | 'Meeting Scheduled'
   | 'Proposal sent'
+  | 'Proposal Sent'
   | 'Negotiation'
   | 'Won'
   | 'Lost'
   | 'Follow-up required'
+  | 'Follow-up Required'
   // Legacy compatibility aliases
   | 'New Lead'
   | 'Qualified'
@@ -95,6 +99,12 @@ export interface ExtractedRecord {
   recommendedService?: string;
   priority?: 'High' | 'Medium' | 'Low';
   lastContactedAt?: string;
+  callCompleted?: boolean;
+  callCompletedAt?: string;
+  crmStatus?: 'pending' | 'accepted' | 'rejected' | 'in_crm';
+  rejectionReason?: string;
+  acceptedAt?: string;
+  rejectedAt?: string;
   followUpDate?: string;
   rawFields: Record<string, any>;
   sourceRef: SourceReference;
@@ -339,6 +349,7 @@ export interface CustomerAnalysis {
   factEvidenceMap: {
     verifiedFacts: string[];
     aiHypotheses: string[];
+    unconfirmedItems?: string[];
     dataIntegrityNotice: string;
   };
   // Backward compatibility fields
@@ -590,6 +601,7 @@ export interface DashboardMetrics {
   totalPipelineValue: number;
   servicePerformance: {
     serviceName: string;
+    shortName?: string;
     category: string;
     recommendedCount: number;
     proposedCount: number;
@@ -601,6 +613,8 @@ export interface DashboardMetrics {
     leadsCount: number;
     wonCount: number;
     conversionRate: number;
+    percentage?: number;
+    color?: string;
   }[];
   recentActivity: {
     id: string;
@@ -608,7 +622,23 @@ export interface DashboardMetrics {
     title: string;
     description: string;
     timestamp: string;
+    timeAgo?: string;
     user: string;
+  }[];
+  upcomingTasks?: {
+    id: string;
+    title: string;
+    subtitle: string;
+    dueDateText: string;
+    isDueToday: boolean;
+    completed: boolean;
+  }[];
+  aiRecommendations?: {
+    id: string;
+    title: string;
+    description: string;
+    actionView: string;
+    icon: string;
   }[];
 }
 

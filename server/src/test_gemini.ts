@@ -138,9 +138,22 @@ JSON SCHEMA:
   });
   const elapsed = Date.now() - t0;
   console.log(`Finished in ${elapsed}ms! Length: ${res.text?.length}`);
-  const parsed = JSON.parse(res.text || '{}');
-  console.log('Success! Parsed services count:', parsed.recommendedServices?.length);
-  console.log('Parsed digital presence items:', parsed.digitalPresence?.length);
+  const raw = res.text || '{}';
+  try {
+    const parsed = JSON.parse(raw);
+    console.log('Success! Parsed services count:', parsed.recommendedServices?.length);
+    console.log('Parsed digital presence items:', parsed.digitalPresence?.length);
+  } catch (err: any) {
+    console.error('JSON Parse error:', err.message);
+    const posMatch = err.message.match(/position (\d+)/);
+    if (posMatch) {
+      const pos = parseInt(posMatch[1], 10);
+      console.error('Context around error:');
+      console.error(raw.slice(Math.max(0, pos - 150), Math.min(raw.length, pos + 150)));
+    } else {
+      console.error('Full response preview:', raw.slice(0, 1000));
+    }
+  }
 }
 
 testFastAnalyze();

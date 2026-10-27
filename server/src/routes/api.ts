@@ -17,7 +17,9 @@ import {
   FollowUpTask,
   CallLog,
   PipelineStage,
-  IndustryCatalogueItem
+  IndustryCatalogueItem,
+  ServiceRecommendation,
+  CustomerAnalysis
 } from '../../../shared/types.js';
 
 export const apiRouter = Router();
@@ -246,7 +248,7 @@ apiRouter.delete('/files/:id', (req: Request, res: Response) => {
 // 3. EXTRACTED DATA EXPLORER ROUTES
 // ==============================================================================
 apiRouter.get('/records', (req: Request, res: Response) => {
-  const { fileId, search, status, duplicateOnly, missingOnly, limit = 100, offset = 0 } = req.query;
+  const { fileId, search, status, duplicateOnly, missingOnly, callStatus, crmStatus, limit = 200, offset = 0 } = req.query;
 
   let query = 'SELECT * FROM extracted_records WHERE 1=1';
   const params: any[] = [];
@@ -264,6 +266,20 @@ apiRouter.get('/records', (req: Request, res: Response) => {
   }
   if (missingOnly === 'true') {
     query += ' AND has_missing_values = 1';
+  }
+  if (callStatus === 'completed') {
+    query += ' AND call_completed = 1';
+  } else if (callStatus === 'pending') {
+    query += ' AND (call_completed = 0 OR call_completed IS NULL)';
+  }
+  if (crmStatus === 'pending') {
+    query += " AND (crm_status = 'pending' OR crm_status IS NULL OR crm_status = 'raw')";
+  } else if (crmStatus === 'accepted') {
+    query += " AND crm_status = 'accepted'";
+  } else if (crmStatus === 'rejected') {
+    query += " AND crm_status = 'rejected'";
+  } else if (crmStatus === 'in_crm') {
+    query += " AND (crm_status = 'in_crm' OR status = 'in_crm')";
   }
   if (search) {
     query += ' AND (customer_name LIKE ? OR company_name LIKE ? OR email LIKE ? OR phone LIKE ? OR industry LIKE ?)';
@@ -293,6 +309,8 @@ apiRouter.get('/records', (req: Request, res: Response) => {
       } catch {}
     }
 
+    const crmStatusVal = r.crm_status || (r.status === 'in_crm' ? 'in_crm' : 'pending');
+
     return {
       id: r.id,
       fileId: r.file_id,
@@ -310,6 +328,12 @@ apiRouter.get('/records', (req: Request, res: Response) => {
       priority,
       recommendedService: recommendedService || (analysisStatus === 'Analysed' ? 'Lead CRM & Workflow Automation' : undefined),
       lastContactedAt: r.last_contacted_at || null,
+      callCompleted: Boolean(r.call_completed),
+      callCompletedAt: r.call_completed_at || null,
+      crmStatus: crmStatusVal,
+      rejectionReason: r.rejection_reason || null,
+      acceptedAt: r.accepted_at || null,
+      rejectedAt: r.rejected_at || null,
       followUpDate: r.follow_up_date || null,
       rawFields: r.raw_fields ? JSON.parse(r.raw_fields) : {},
       sourceRef: {
@@ -332,8 +356,24 @@ apiRouter.get('/records', (req: Request, res: Response) => {
   });
 
   const totalCount = (db.prepare('SELECT COUNT(*) as cnt FROM extracted_records').get() as { cnt: number }).cnt;
+  const callsCompletedCount = (db.prepare('SELECT COUNT(*) as cnt FROM extracted_records WHERE call_completed = 1').get() as { cnt: number }).cnt;
+  const callsPendingCount = totalCount - callsCompletedCount;
 
-  return res.json({ records, totalCount });
+  const crmCounts = {
+    total: totalCount,
+    pending: (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE crm_status = 'pending' OR crm_status IS NULL OR crm_status = 'raw'").get() as any).cnt,
+    accepted: (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE crm_status = 'accepted'").get() as any).cnt,
+    rejected: (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE crm_status = 'rejected'").get() as any).cnt,
+    inCrm: (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE crm_status = 'in_crm' OR status = 'in_crm'").get() as any).cnt,
+  };
+
+  return res.json({
+    records,
+    totalCount,
+    callsCompletedCount,
+    callsPendingCount,
+    crmCounts
+  });
 });
 
 apiRouter.get('/records/:id', (req: Request, res: Response) => {
@@ -373,6 +413,12 @@ apiRouter.get('/records/:id', (req: Request, res: Response) => {
     priority,
     recommendedService: recommendedService || (analysisStatus === 'Analysed' ? 'Lead CRM & Workflow Automation' : undefined),
     lastContactedAt: r.last_contacted_at || null,
+    callCompleted: Boolean(r.call_completed),
+    callCompletedAt: r.call_completed_at || null,
+    crmStatus: r.crm_status || (r.status === 'in_crm' ? 'in_crm' : 'pending'),
+    rejectionReason: r.rejection_reason || null,
+    acceptedAt: r.accepted_at || null,
+    rejectedAt: r.rejected_at || null,
     followUpDate: r.follow_up_date || null,
     rawFields: r.raw_fields ? JSON.parse(r.raw_fields) : {},
     sourceRef: {
@@ -394,6 +440,186 @@ apiRouter.get('/records/:id', (req: Request, res: Response) => {
   };
 
   return res.json(record);
+});
+
+apiRouter.patch('/records/:id/call-status', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { callCompleted } = req.body;
+
+  const record = db.prepare('SELECT id, customer_name, company_name FROM extracted_records WHERE id = ?').get(id) as any;
+  if (!record) {
+    return res.status(404).json({ error: 'Record not found' });
+  }
+
+  const isCompleted = callCompleted ? 1 : 0;
+  const completedAt = isCompleted ? new Date().toISOString().replace('T', ' ').slice(0, 19) : null;
+
+  db.prepare(`
+    UPDATE extracted_records 
+    SET call_completed = ?, 
+        call_completed_at = ?,
+        last_contacted_at = COALESCE(?, last_contacted_at),
+        updated_at = datetime('now')
+    WHERE id = ?
+  `).run(isCompleted, completedAt, completedAt, id);
+
+  // Sync to leads table if a corresponding lead exists
+  try {
+    db.prepare(`
+      UPDATE leads
+      SET call_completed = ?,
+          call_completed_at = ?,
+          last_contacted_at = COALESCE(?, last_contacted_at),
+          updated_at = datetime('now')
+      WHERE extracted_record_id = ?
+    `).run(isCompleted, completedAt, completedAt, id);
+  } catch {}
+
+  logAudit('UPDATE_CALL_STATUS', 'extracted_records', String(id), {
+    customerName: record.customer_name,
+    company: record.company_name,
+    callCompleted: Boolean(isCompleted),
+    callCompletedAt: completedAt
+  });
+
+  return res.json({
+    success: true,
+    id,
+    callCompleted: Boolean(isCompleted),
+    callCompletedAt: completedAt
+  });
+});
+
+// Accept Lead & Move to CRM
+apiRouter.post('/records/:id/accept', (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const rec = db.prepare('SELECT * FROM extracted_records WHERE id = ?').get(id) as any;
+  if (!rec) {
+    return res.status(404).json({ error: 'Customer lead record not found' });
+  }
+
+  // Requirement 2: Rejected leads must not be transferred to CRM
+  if (rec.crm_status === 'rejected') {
+    return res.status(400).json({
+      error: 'Rejected leads cannot be transferred to CRM. Please clear the rejection status first.'
+    });
+  }
+
+  // Prevent duplicate CRM entries: check existing lead by extracted_record_id, or by matching company_name / phone
+  let existingLead = db.prepare('SELECT id FROM leads WHERE extracted_record_id = ?').get(id) as any;
+  if (!existingLead && rec.company_name) {
+    existingLead = db.prepare('SELECT id FROM leads WHERE LOWER(company_name) = LOWER(?)').get(rec.company_name) as any;
+  }
+  let leadId = existingLead?.id;
+
+  if (rec.crm_status === 'accepted' && existingLead) {
+    return res.json({
+      success: true,
+      message: 'Lead is already transferred to CRM.',
+      leadId,
+      crmStatus: 'accepted'
+    });
+  }
+
+  if (!existingLead) {
+    leadId = uuidv4();
+    db.prepare(`
+      INSERT INTO leads (
+        id, extracted_record_id, customer_name, company_name, email, phone,
+        industry, location, lead_source, lead_status, pipeline_value,
+        recommended_service, website, digital_presence, analysis_status,
+        priority, call_completed, call_completed_at, outcome
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Document Import', 'Accepted', 45000, ?, ?, ?, ?, ?, ?, ?, 'Accepted')
+    `).run(
+      leadId,
+      rec.id,
+      rec.customer_name,
+      rec.company_name,
+      rec.email,
+      rec.phone,
+      rec.industry,
+      rec.location,
+      rec.recommended_service || 'Lead CRM & Workflow Automation',
+      rec.website || (rec.email && rec.email.includes('@') ? `https://${rec.email.split('@')[1]}` : null),
+      rec.digital_presence || null,
+      rec.analysis_status || (rec.status === 'analyzed' ? 'Analysed' : 'New'),
+      rec.priority || 'Medium',
+      rec.call_completed || 0,
+      rec.call_completed_at || null
+    );
+  } else {
+    db.prepare("UPDATE leads SET lead_status = 'Accepted', outcome = 'Accepted', rejection_reason = NULL, updated_at = datetime('now') WHERE id = ?").run(leadId);
+  }
+
+  // Update extracted record to accepted and in_crm
+  db.prepare(`
+    UPDATE extracted_records
+    SET crm_status = 'accepted',
+        status = 'in_crm',
+        accepted_at = datetime('now'),
+        rejection_reason = NULL,
+        updated_at = datetime('now')
+    WHERE id = ?
+  `).run(id);
+
+  logAudit('ACCEPT_LEAD_TO_CRM', 'leads', String(leadId), {
+    customerName: rec.customer_name,
+    company: rec.company_name,
+    recordId: id
+  });
+
+  return res.json({
+    success: true,
+    message: 'Lead successfully moved to CRM.',
+    leadId,
+    crmStatus: 'accepted'
+  });
+});
+
+// Reject Lead
+apiRouter.post('/records/:id/reject', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { reason = '' } = req.body;
+
+  const rec = db.prepare('SELECT * FROM extracted_records WHERE id = ?').get(id) as any;
+  if (!rec) {
+    return res.status(404).json({ error: 'Customer lead record not found' });
+  }
+
+  // Update extracted record
+  db.prepare(`
+    UPDATE extracted_records
+    SET crm_status = 'rejected',
+        rejection_reason = ?,
+        rejected_at = datetime('now'),
+        updated_at = datetime('now')
+    WHERE id = ?
+  `).run(reason || null, id);
+
+  // If a lead was already in CRM, update it to Lost / Rejected
+  try {
+    db.prepare(`
+      UPDATE leads
+      SET lead_status = 'Lost',
+          outcome = 'Rejected',
+          rejection_reason = ?,
+          updated_at = datetime('now')
+      WHERE extracted_record_id = ?
+    `).run(reason || null, id);
+  } catch {}
+
+  logAudit('REJECT_LEAD', 'extracted_records', String(id), {
+    customerName: rec.customer_name,
+    company: rec.company_name,
+    reason
+  });
+
+  return res.json({
+    success: true,
+    message: 'Lead rejected successfully.',
+    crmStatus: 'rejected'
+  });
 });
 
 // ==============================================================================
@@ -513,35 +739,15 @@ apiRouter.get('/analysis/:recordId', async (req: Request, res: Response) => {
   return res.json(analysis);
 });
 
-apiRouter.get('/analysis/:recordId/services', async (req: Request, res: Response) => {
-  const recordId = req.params.recordId;
-  const recordRow = db.prepare('SELECT * FROM extracted_records WHERE id = ?').get(recordId) as any;
-  if (!recordRow) return res.status(404).json({ error: 'Record not found' });
-
-  const record: ExtractedRecord = {
-    id: recordRow.id,
-    fileId: recordRow.file_id,
-    customerName: recordRow.customer_name,
-    companyName: recordRow.company_name,
-    email: recordRow.email,
-    phone: recordRow.phone,
-    industry: recordRow.industry,
-    location: recordRow.location,
-    rawFields: recordRow.raw_fields ? JSON.parse(recordRow.raw_fields) : {},
-    sourceRef: { fileName: 'Imported Document', fileId: recordRow.file_id },
-    status: recordRow.status,
-    flags: {
-      isDuplicate: Boolean(recordRow.is_duplicate),
-      hasMissingValues: Boolean(recordRow.has_missing_values),
-      hasInvalidData: Boolean(recordRow.has_invalid_data),
-      missingFields: [],
-      invalidFields: []
-    },
-    createdAt: recordRow.created_at
-  };
-
+// In-memory catalog cache with 5-minute TTL
+let activeCatalogCache: { data: ServiceCatalogItem[]; timestamp: number } | null = null;
+function getCachedActiveCatalog(): ServiceCatalogItem[] {
+  const now = Date.now();
+  if (activeCatalogCache && now - activeCatalogCache.timestamp < 300000) {
+    return activeCatalogCache.data;
+  }
   const catalogRows = db.prepare('SELECT * FROM service_catalog WHERE is_active = 1').all() as any[];
-  const activeCatalog: ServiceCatalogItem[] = catalogRows.map(s => ({
+  const data: ServiceCatalogItem[] = catalogRows.map(s => ({
     id: s.id,
     name: s.name,
     category: s.category,
@@ -555,38 +761,164 @@ apiRouter.get('/analysis/:recordId/services', async (req: Request, res: Response
     deliveryRequirements: s.delivery_requirements ? JSON.parse(s.delivery_requirements) : [],
     isActive: true
   }));
+  activeCatalogCache = { data, timestamp: now };
+  return data;
+}
 
-  const analysis = await GeminiService.analyzeCustomerRecord(record, activeCatalog);
+apiRouter.get('/analysis/:recordId/services', async (req: Request, res: Response) => {
+  const recordId = String(req.params.recordId);
+  const forceFresh = req.query.forceFresh === 'true';
+
+  const recordRow = db.prepare('SELECT * FROM extracted_records WHERE id = ?').get(recordId) as any;
+  if (!recordRow) return res.status(404).json({ error: 'Customer record not found' });
+
+  // 1. Return cached recommendations immediately if available (unless forceFresh requested)
+  if (!forceFresh) {
+    const cachedRows = db.prepare(`
+      SELECT * FROM service_recommendations 
+      WHERE record_id = ? 
+      ORDER BY rank ASC
+    `).all(recordId) as any[];
+
+    if (cachedRows.length > 0) {
+      const recommendations: ServiceRecommendation[] = cachedRows.map(c => ({
+        id: c.id,
+        recordId: c.record_id,
+        serviceId: c.service_id,
+        serviceName: c.service_name,
+        category: c.category,
+        rank: c.rank,
+        relevanceScore: c.relevance_score,
+        suitabilityExplanation: c.suitability_explanation,
+        supportingEvidence: c.supporting_evidence ? JSON.parse(c.supporting_evidence) : [],
+        missingInformationAndAssumptions: c.missing_info_and_assumptions ? JSON.parse(c.missing_info_and_assumptions) : [],
+        comparison: c.comparison ? JSON.parse(c.comparison) : { benefits: [], limitations: [], complexity: 'Medium', risks: [] },
+        likelyObjections: c.likely_objections ? JSON.parse(c.likely_objections) : [],
+        suggestedNextAction: c.suggested_next_action,
+        acceptanceEstimate: c.acceptance_estimate ? JSON.parse(c.acceptance_estimate) : {
+          preliminaryEstimate: Math.round(c.relevance_score * 0.8),
+          confidenceLevel: 'Medium',
+          isPreliminary: true,
+          statusLabel: 'Preliminary Estimate',
+          supportingEvidence: [],
+          missingFactors: [],
+          mainReasonsForUncertainty: [],
+          recommendedActionsToImprove: []
+        },
+        approvalStatus: c.approval_status || 'pending',
+        manualNotes: c.manual_notes || undefined
+      }));
+
+      return res.json(recommendations);
+    }
+  }
+
+  // 2. Fetch active catalog from cache/db
+  const activeCatalog = getCachedActiveCatalog();
+  if (activeCatalog.length === 0) {
+    return res.json([]);
+  }
+
+  const record: ExtractedRecord = {
+    id: recordRow.id,
+    fileId: recordRow.file_id,
+    customerName: recordRow.customer_name,
+    companyName: recordRow.company_name,
+    email: recordRow.email,
+    phone: recordRow.phone,
+    industry: recordRow.industry,
+    location: recordRow.location,
+    website: recordRow.website,
+    rawFields: recordRow.raw_fields ? JSON.parse(recordRow.raw_fields) : {},
+    sourceRef: { fileName: 'Imported Document', fileId: recordRow.file_id },
+    status: recordRow.status,
+    flags: {
+      isDuplicate: Boolean(recordRow.is_duplicate),
+      hasMissingValues: Boolean(recordRow.has_missing_values),
+      hasInvalidData: Boolean(recordRow.has_invalid_data),
+      missingFields: [],
+      invalidFields: []
+    },
+    createdAt: recordRow.created_at
+  };
+
+  // 3. Resolve customer analysis (check DB first to prevent redundant expensive LLM calls)
+  let analysis: CustomerAnalysis;
+  const existingAnalysisRow = db.prepare(`
+    SELECT * FROM customer_analyses WHERE record_id = ? ORDER BY created_at DESC LIMIT 1
+  `).get(recordId) as any;
+
+  if (existingAnalysisRow) {
+    analysis = {
+      id: existingAnalysisRow.id,
+      recordId: existingAnalysisRow.record_id,
+      generatedAt: existingAnalysisRow.created_at,
+      modelUsed: existingAnalysisRow.model_used,
+      customerProfile: JSON.parse(existingAnalysisRow.customer_profile),
+      digitalPresence: existingAnalysisRow.digital_presence ? JSON.parse(existingAnalysisRow.digital_presence) : undefined,
+      businessProblems: existingAnalysisRow.business_problems ? JSON.parse(existingAnalysisRow.business_problems) : undefined,
+      businessGapAnalysis: existingAnalysisRow.business_gap_analysis ? JSON.parse(existingAnalysisRow.business_gap_analysis) : undefined,
+      recommendedServices: existingAnalysisRow.recommended_services ? JSON.parse(existingAnalysisRow.recommended_services) : undefined,
+      suggestedServicePackage: existingAnalysisRow.suggested_service_package ? JSON.parse(existingAnalysisRow.suggested_service_package) : undefined,
+      salesStrategy: existingAnalysisRow.sales_strategy ? JSON.parse(existingAnalysisRow.sales_strategy) : undefined,
+      dataQuality: existingAnalysisRow.data_quality ? JSON.parse(existingAnalysisRow.data_quality) : undefined,
+      factEvidenceMap: existingAnalysisRow.fact_evidence_map ? JSON.parse(existingAnalysisRow.fact_evidence_map) : { verifiedFacts: [], aiHypotheses: [] }
+    };
+  } else {
+    // Generate instant deterministic analysis using the industry catalogue intelligence engine
+    const industryRows = db.prepare('SELECT * FROM industry_catalogue').all() as any[];
+    const indLower = `${record.industry || ''} ${record.companyName || ''}`.toLowerCase();
+    const matchedIndustry = industryRows.find(i => {
+      if (i.industry_name && indLower.includes(i.industry_name.toLowerCase())) return true;
+      try {
+        const cats = JSON.parse(i.business_categories || '[]');
+        return cats.some((c: string) => indLower.includes(c.toLowerCase()));
+      } catch { return false; }
+    }) || industryRows[0];
+
+    analysis = GeminiService.buildDeterministicAnalysis(record, activeCatalog, matchedIndustry);
+  }
+
+  // 4. Match services using the ranking and acceptance engine (<1ms)
   const recommendations = await GeminiService.matchServices(record, analysis, activeCatalog);
 
-  // Cache in service_recommendations
-  const insertRec = db.prepare(`
-    INSERT OR REPLACE INTO service_recommendations (
-      id, record_id, service_id, service_name, category, rank, relevance_score,
-      suitability_explanation, supporting_evidence, missing_info_and_assumptions,
-      comparison, likely_objections, suggested_next_action, acceptance_estimate, approval_status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  for (const r of recommendations) {
-    insertRec.run(
-      r.id,
-      r.recordId,
-      r.serviceId,
-      r.serviceName,
-      r.category,
-      r.rank,
-      r.relevanceScore,
-      r.suitabilityExplanation,
-      JSON.stringify(r.supportingEvidence),
-      JSON.stringify(r.missingInformationAndAssumptions || []),
-      JSON.stringify(r.comparison),
-      JSON.stringify(r.likelyObjections),
-      r.suggestedNextAction,
-      JSON.stringify(r.acceptanceEstimate),
-      r.approvalStatus
-    );
+  // 5. Cache recommendations cleanly in database in a single transaction
+  try {
+    const saveTx = db.transaction((recs: ServiceRecommendation[]) => {
+      db.prepare('DELETE FROM service_recommendations WHERE record_id = ?').run(recordId);
+      const insertRec = db.prepare(`
+        INSERT INTO service_recommendations (
+          id, record_id, service_id, service_name, category, rank, relevance_score,
+          suitability_explanation, supporting_evidence, missing_info_and_assumptions,
+          comparison, likely_objections, suggested_next_action, acceptance_estimate, approval_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const r of recs) {
+        insertRec.run(
+          r.id,
+          r.recordId,
+          r.serviceId,
+          r.serviceName,
+          r.category,
+          r.rank,
+          r.relevanceScore,
+          r.suitabilityExplanation,
+          JSON.stringify(r.supportingEvidence || []),
+          JSON.stringify(r.missingInformationAndAssumptions || []),
+          JSON.stringify(r.comparison || {}),
+          JSON.stringify(r.likelyObjections || []),
+          r.suggestedNextAction || '',
+          JSON.stringify(r.acceptanceEstimate || {}),
+          r.approvalStatus || 'pending'
+        );
+      }
+    });
+    saveTx(recommendations);
+  } catch (err: any) {
+    console.error('Failed to cache service recommendations:', err);
   }
+
+  logAudit('MATCH_SERVICES', 'service_recommendations', recordId, { count: recommendations.length });
 
   return res.json(recommendations);
 });
@@ -933,7 +1265,7 @@ apiRouter.get('/leads', (req: Request, res: Response) => {
 
 apiRouter.post('/records/:id/to-crm', (req: Request, res: Response) => {
   const recordId = req.params.id;
-  const { pipelineStage = 'New Lead', pipelineValue = 5000, recommendedService } = req.body;
+  const { pipelineStage = 'New Lead', pipelineValue = 45000, recommendedService } = req.body;
 
   const rec = db.prepare('SELECT * FROM extracted_records WHERE id = ?').get(recordId) as any;
   if (!rec) return res.status(404).json({ error: 'Record not found' });
@@ -971,7 +1303,7 @@ apiRouter.post('/records/:id/to-crm', (req: Request, res: Response) => {
 });
 
 apiRouter.post('/records/batch-to-crm', (req: Request, res: Response) => {
-  const { recordIds, defaultStage = 'New Lead', defaultValue = 5000 } = req.body;
+  const { recordIds, defaultStage = 'New Lead', defaultValue = 45000 } = req.body;
   if (!Array.isArray(recordIds) || recordIds.length === 0) {
     return res.status(400).json({ error: 'No record IDs provided' });
   }
@@ -1042,13 +1374,13 @@ apiRouter.put('/leads/:id', (req: Request, res: Response) => {
     db.prepare(`
       INSERT INTO proposals (id, lead_id, title, value, status, sent_date)
       VALUES (?, ?, 'Enterprise Solution Proposal', ?, 'sent', date('now'))
-    `).run(propId, leadId, pipelineValue || 15000);
+    `).run(propId, leadId, pipelineValue || 120000);
   } else if (leadStatus === 'Won' || outcome === 'Accepted') {
     const outcomeId = uuidv4();
     db.prepare(`
       INSERT INTO sales_outcomes (id, lead_id, outcome, contract_value)
       VALUES (?, ?, 'Accepted', ?)
-    `).run(outcomeId, leadId, pipelineValue || 20000);
+    `).run(outcomeId, leadId, pipelineValue || 180000);
     // Update proposal to accepted
     db.prepare("UPDATE proposals SET status = 'accepted' WHERE lead_id = ?").run(leadId);
   } else if (leadStatus === 'Lost' || outcome === 'Rejected') {
@@ -1257,6 +1589,7 @@ apiRouter.post('/services', (req: Request, res: Response) => {
     isActive !== false ? 1 : 0
   );
 
+  activeCatalogCache = null;
   logAudit('CREATE_SERVICE', 'service_catalog', id, { name, category });
   return res.json({ success: true, id });
 });
@@ -1292,12 +1625,14 @@ apiRouter.put('/services/:id', (req: Request, res: Response) => {
     req.params.id
   );
 
+  activeCatalogCache = null;
   logAudit('UPDATE_SERVICE', 'service_catalog', req.params.id as string, { name });
   return res.json({ success: true });
 });
 
 apiRouter.delete('/services/:id', (req: Request, res: Response) => {
   db.prepare('DELETE FROM service_catalog WHERE id = ?').run(req.params.id);
+  activeCatalogCache = null;
   logAudit('DELETE_SERVICE', 'service_catalog', req.params.id as string);
   return res.json({ success: true });
 });
@@ -1393,7 +1728,11 @@ apiRouter.delete('/industries/:id', (req: Request, res: Response) => {
 // 11. REPORTS & SALES ANALYTICS
 // ==============================================================================
 apiRouter.get('/analytics/dashboard', (req: Request, res: Response) => {
-  const metrics = AnalyticsService.getDashboardMetrics();
+  const { timeRange, solutionFilter } = req.query;
+  const metrics = AnalyticsService.getDashboardMetrics({
+    timeRange: timeRange as string,
+    solutionFilter: solutionFilter as string
+  });
   return res.json(metrics);
 });
 
@@ -1471,7 +1810,7 @@ apiRouter.post('/seed-sample', (req: Request, res: Response) => {
       location: 'Chennai, Tamil Nadu',
       raw: { employees: '180', fleetSize: '65 trucks', currentIssue: 'Tracking consignments via manual excel sheets and phone calls' },
       stage: 'Contacted',
-      val: 28000,
+      val: 280000,
       service: 'Enterprise Web Application Development'
     },
     {
@@ -1483,7 +1822,7 @@ apiRouter.post('/seed-sample', (req: Request, res: Response) => {
       location: 'Coimbatore, Tamil Nadu',
       raw: { locations: '4 clinics', currentIssue: 'Patients waiting long times for WhatsApp appointment confirmation and billing records' },
       stage: 'Meeting Scheduled',
-      val: 18500,
+      val: 185000,
       service: 'Automated Business Workflows & RPA'
     },
     {
@@ -1495,7 +1834,7 @@ apiRouter.post('/seed-sample', (req: Request, res: Response) => {
       location: 'Tirupur, Tamil Nadu',
       raw: { exportMarkets: 'UK, Germany, UAE', currentIssue: 'Outdated static HTML website from 2018 with zero international inbound inquiries' },
       stage: 'Proposal Sent',
-      val: 12000,
+      val: 120000,
       service: 'Modern Website Design & Lead Engine'
     },
     {
@@ -1505,9 +1844,9 @@ apiRouter.post('/seed-sample', (req: Request, res: Response) => {
       phone: '+919820543210',
       industry: 'Financial Services & Wealth Management',
       location: 'Bangalore, Karnataka',
-      raw: { aum: '$45M', currentIssue: 'High document loan processing manual verification backlog taking 5 days per client' },
+      raw: { aum: '₹350 Cr', currentIssue: 'High document loan processing manual verification backlog taking 5 days per client' },
       stage: 'Negotiation',
-      val: 45000,
+      val: 450000,
       service: 'Custom AI & Machine Learning Solutions'
     },
     {
@@ -1519,7 +1858,7 @@ apiRouter.post('/seed-sample', (req: Request, res: Response) => {
       location: 'Madurai, Tamil Nadu',
       raw: { retailStores: '32 stores', currentIssue: 'No centralized dashboard; store managers WhatsApp end-of-day sales daily' },
       stage: 'Won',
-      val: 22000,
+      val: 220000,
       service: 'Executive Dashboards & Business Intelligence'
     },
     {
@@ -1531,7 +1870,7 @@ apiRouter.post('/seed-sample', (req: Request, res: Response) => {
       location: 'Chennai, Tamil Nadu',
       raw: { cncMachines: '40', currentIssue: 'Legacy server crash last month lost 3 days of production work orders' },
       stage: 'Lost',
-      val: 16000,
+      val: 160000,
       service: 'Cloud Infrastructure Migration & Modernization'
     }
   ];

@@ -260,7 +260,7 @@ export const ServiceCatalogView: React.FC = () => {
   });
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
@@ -773,7 +773,7 @@ export const ServiceCatalogView: React.FC = () => {
                   type="text"
                   value={pricingRange}
                   onChange={(e) => setPricingRange(e.target.value)}
-                  placeholder="e.g. Quotation Required"
+                  placeholder="e.g. ₹50,000 - ₹2,00,000"
                   className="w-full p-2 border border-slate-200 rounded-lg text-xs font-mono"
                 />
               </div>

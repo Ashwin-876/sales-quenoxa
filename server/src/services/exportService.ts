@@ -26,6 +26,7 @@ export class ExportService {
       'Source File': r.sheet_name ? `${r.file_id} [Sheet: ${r.sheet_name}]` : r.file_id,
       'Row Number': r.row_number,
       'Status': r.status,
+      'Call Status': r.call_completed ? 'Completed' : 'Pending',
       'Is Duplicate': r.is_duplicate ? 'Yes' : 'No',
       'Has Missing Values': r.has_missing_values ? 'Yes' : 'No',
       'Created At': r.created_at
@@ -52,7 +53,7 @@ export class ExportService {
       'Industry': l.industry,
       'Location': l.location,
       'Pipeline Stage': l.lead_status,
-      'Pipeline Value (USD)': l.pipeline_value,
+      'Pipeline Value (₹ INR)': l.pipeline_value,
       'Recommended Service': l.recommended_service || 'N/A',
       'Follow-Up Date': l.follow_up_date || 'N/A',
       'Outcome': l.outcome || 'Pending',
@@ -77,7 +78,7 @@ export class ExportService {
       rows = db.prepare('SELECT * FROM extracted_records').all();
     }
 
-    const headers = ['Record ID', 'Customer Name', 'Company Name', 'Email', 'Phone', 'Industry', 'Location', 'Status'];
+    const headers = ['Record ID', 'Customer Name', 'Company Name', 'Email', 'Phone', 'Industry', 'Location', 'Status', 'Call Status'];
     const lines = [headers.join(',')];
 
     for (const r of rows) {
@@ -89,7 +90,8 @@ export class ExportService {
         `"${(r.phone || '').replace(/"/g, '""')}"`,
         `"${(r.industry || '').replace(/"/g, '""')}"`,
         `"${(r.location || '').replace(/"/g, '""')}"`,
-        `"${r.status}"`
+        `"${r.status}"`,
+        `"${r.call_completed ? 'Completed' : 'Pending'}"`
       ].join(','));
     }
 

@@ -114,6 +114,8 @@ export function initDatabase() {
       has_invalid_data INTEGER DEFAULT 0,
       missing_fields TEXT,
       invalid_fields TEXT,
+      call_completed INTEGER DEFAULT 0,
+      call_completed_at TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -188,6 +190,8 @@ export function initDatabase() {
       rejection_reason TEXT,
       next_action TEXT,
       notes TEXT,
+      call_completed INTEGER DEFAULT 0,
+      call_completed_at TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -376,7 +380,7 @@ export function initDatabase() {
       service_id TEXT REFERENCES service_catalog(id) ON DELETE SET NULL,
       title TEXT NOT NULL,
       value REAL NOT NULL DEFAULT 0.00,
-      currency TEXT DEFAULT 'USD',
+      currency TEXT DEFAULT 'INR',
       sent_date TEXT,
       valid_until TEXT,
       status TEXT NOT NULL DEFAULT 'draft',
@@ -440,12 +444,21 @@ export function initDatabase() {
   try { db.exec("ALTER TABLE leads ADD COLUMN analysis_status TEXT DEFAULT 'New';"); } catch {}
   try { db.exec("ALTER TABLE leads ADD COLUMN priority TEXT DEFAULT 'Medium';"); } catch {}
   try { db.exec("ALTER TABLE leads ADD COLUMN last_contacted_at TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE leads ADD COLUMN call_completed INTEGER DEFAULT 0;"); } catch {}
+  try { db.exec("ALTER TABLE leads ADD COLUMN call_completed_at TEXT;"); } catch {}
 
   try { db.exec("ALTER TABLE extracted_records ADD COLUMN website TEXT;"); } catch {}
   try { db.exec("ALTER TABLE extracted_records ADD COLUMN digital_presence TEXT;"); } catch {}
   try { db.exec("ALTER TABLE extracted_records ADD COLUMN analysis_status TEXT DEFAULT 'New';"); } catch {}
   try { db.exec("ALTER TABLE extracted_records ADD COLUMN priority TEXT DEFAULT 'Medium';"); } catch {}
   try { db.exec("ALTER TABLE extracted_records ADD COLUMN last_contacted_at TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE extracted_records ADD COLUMN call_completed INTEGER DEFAULT 0;"); } catch {}
+  try { db.exec("ALTER TABLE extracted_records ADD COLUMN call_completed_at TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE extracted_records ADD COLUMN crm_status TEXT DEFAULT 'pending';"); } catch {}
+  try { db.exec("ALTER TABLE extracted_records ADD COLUMN rejection_reason TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE extracted_records ADD COLUMN accepted_at TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE extracted_records ADD COLUMN rejected_at TEXT;"); } catch {}
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_extracted_records_crm_status ON extracted_records(crm_status);"); } catch {}
 
   try { db.exec("ALTER TABLE customer_analyses ADD COLUMN digital_presence TEXT;"); } catch {}
   try { db.exec("ALTER TABLE customer_analyses ADD COLUMN business_problems TEXT;"); } catch {}
@@ -454,17 +467,42 @@ export function initDatabase() {
   try { db.exec("ALTER TABLE customer_analyses ADD COLUMN sales_strategy TEXT;"); } catch {}
   try { db.exec("ALTER TABLE customer_analyses ADD COLUMN data_quality TEXT;"); } catch {}
 
+  // Performance indexes for service recommendations, analyses, and catalog
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_service_recs_record_id ON service_recommendations(record_id);"); } catch {}
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_service_recs_service_id ON service_recommendations(service_id);"); } catch {}
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_customer_analyses_record_id ON customer_analyses(record_id);"); } catch {}
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_service_catalog_active ON service_catalog(is_active);"); } catch {}
+
   // Seed default Services if empty
   seedDefaultServices();
   // Seed default Users & Teams if empty
   seedDefaultUsersAndTeams();
   // Seed default 14-Industry Catalogue if empty
   seedIndustryCatalogue();
+  // Ensure real uploaded/extracted records are synced as live leads
+  syncGivenDataOnly();
 }
 
 function seedDefaultServices() {
   const count = db.prepare('SELECT COUNT(*) as cnt FROM service_catalog').get() as { cnt: number };
-  if (count.cnt > 0) return;
+  if (count.cnt > 0) {
+    // Migrate any legacy USD pricing to Indian Rupee (INR) pricing
+    db.exec(`
+      UPDATE service_catalog SET pricing_range = '₹2,50,000 - ₹8,50,000' WHERE name = 'Custom AI & Machine Learning Solutions';
+      UPDATE service_catalog SET pricing_range = '₹45,000 - ₹1,25,000' WHERE name = 'Modern Website Design & Lead Engine';
+      UPDATE service_catalog SET pricing_range = '₹2,00,000 - ₹7,50,000' WHERE name = 'Enterprise Web Application Development';
+      UPDATE service_catalog SET pricing_range = '₹3,00,000 - ₹10,00,000' WHERE name = 'Full-Stack Digital Transformation & Portals';
+      UPDATE service_catalog SET pricing_range = '₹1,50,000 - ₹6,00,000' WHERE name = 'Custom Software & Process Automation';
+      UPDATE service_catalog SET pricing_range = '₹50,000 - ₹2,00,000' WHERE name = 'Automated Business Workflows & RPA';
+      UPDATE service_catalog SET pricing_range = '₹75,000 - ₹3,00,000' WHERE name = 'Data Analytics & Predictive Business Insights';
+      UPDATE service_catalog SET pricing_range = '₹60,000 - ₹2,50,000' WHERE name = 'Executive Dashboards & Business Intelligence';
+      UPDATE service_catalog SET pricing_range = '₹95,000 - ₹4,00,000' WHERE name = 'Cloud Infrastructure Migration & Modernization';
+      UPDATE service_catalog SET pricing_range = '₹65,000 - ₹2,50,000' WHERE name = 'Cross-Platform Software & API Integration';
+      UPDATE service_catalog SET pricing_range = '₹40,000 - ₹1,80,000 / month' WHERE name = 'Strategic Technology Architecture Consulting';
+      UPDATE service_catalog SET pricing_range = '₹35,000 - ₹1,50,000' WHERE name = 'Enterprise Corporate Technology Training';
+    `);
+    return;
+  }
 
   const initialServices: Omit<ServiceCatalogItem, 'createdAt' | 'updatedAt'>[] = [
     {
@@ -476,7 +514,7 @@ function seedDefaultServices() {
       qualifyingRequirements: ['Available domain data or document repositories', 'Established operational bottleneck', 'Minimum budget commitment'],
       expectedBenefits: ['Up to 80% reduction in manual document handling', 'Instant 24/7 intelligent reasoning', 'Data-driven decision making'],
       limitations: ['Requires curated sample data for optimal accuracy', 'Cloud compute dependencies'],
-      pricingRange: '$10,000 - $45,000',
+      pricingRange: '₹2,50,000 - ₹8,50,000',
       implementationComplexity: 'High',
       deliveryRequirements: ['Customer domain expert access', 'API/cloud infrastructure access'],
       isActive: true,
@@ -490,7 +528,7 @@ function seedDefaultServices() {
       qualifyingRequirements: ['Outdated web presence (>3 years old)', 'Lack of mobile optimization or slow load times'],
       expectedBenefits: ['3x higher conversion rate', 'Sub-second page load times', 'Rankings increase for regional search terms'],
       limitations: ['Requires client brand assets and copy approvals'],
-      pricingRange: '$3,500 - $12,000',
+      pricingRange: '₹45,000 - ₹1,25,000',
       implementationComplexity: 'Medium',
       deliveryRequirements: ['Logo and brand identity assets', 'Content guidelines'],
       isActive: true,
@@ -504,7 +542,7 @@ function seedDefaultServices() {
       qualifyingRequirements: ['Multi-user workflow bottlenecks', 'Need for centralized customer/order tracking'],
       expectedBenefits: ['Single source of truth', 'Elimination of duplicate manual entries', 'Audit trail compliance'],
       limitations: ['Requires 4-8 weeks engineering sprint cycle'],
-      pricingRange: '$15,000 - $60,000',
+      pricingRange: '₹2,00,000 - ₹7,50,000',
       implementationComplexity: 'High',
       deliveryRequirements: ['Business process workflow map', 'Stakeholder interviews'],
       isActive: true,
@@ -518,7 +556,7 @@ function seedDefaultServices() {
       qualifyingRequirements: ['High customer inquiries on order/service status', 'Manual invoicing & document exchange'],
       expectedBenefits: ['60% reduction in support tickets', 'Instant client transparency', 'Accelerated payments'],
       limitations: ['Requires integration with existing billing/ERP system'],
-      pricingRange: '$20,000 - $75,000',
+      pricingRange: '₹3,00,000 - ₹10,00,000',
       implementationComplexity: 'Enterprise',
       deliveryRequirements: ['ERP API endpoints or database access'],
       isActive: true,
@@ -532,7 +570,7 @@ function seedDefaultServices() {
       qualifyingRequirements: ['Unsatisfied by off-the-shelf SaaS options', 'High cost of manual workarounds'],
       expectedBenefits: ['Exact operational fit', 'Zero recurring SaaS seat licensing inflation'],
       limitations: ['Requires thorough scoping phase'],
-      pricingRange: '$12,000 - $50,000',
+      pricingRange: '₹1,50,000 - ₹6,00,000',
       implementationComplexity: 'High',
       deliveryRequirements: ['Detailed specification and edge case review'],
       isActive: true,
@@ -546,7 +584,7 @@ function seedDefaultServices() {
       qualifyingRequirements: ['Repetitive tasks taking >10 hours/week', 'Digital input/output formats available'],
       expectedBenefits: ['99.9% elimination of data-entry typos', 'Instant customer notifications', 'Saves hundreds of payroll hours'],
       limitations: ['Third-party system APIs must remain stable'],
-      pricingRange: '$4,000 - $18,000',
+      pricingRange: '₹50,000 - ₹2,00,000',
       implementationComplexity: 'Medium',
       deliveryRequirements: ['System credentials and trigger definitions'],
       isActive: true,
@@ -560,7 +598,7 @@ function seedDefaultServices() {
       qualifyingRequirements: ['Historical transaction or interaction data (>6 months)'],
       expectedBenefits: ['Identification of highest margin customer segments', 'Proactive churn prevention', 'Inventory optimization'],
       limitations: ['Dependent on historical data cleanliness'],
-      pricingRange: '$6,000 - $25,000',
+      pricingRange: '₹75,000 - ₹3,00,000',
       implementationComplexity: 'Medium',
       deliveryRequirements: ['Access to historical transaction databases or CSV archives'],
       isActive: true,
@@ -574,7 +612,7 @@ function seedDefaultServices() {
       qualifyingRequirements: ['Multiple branch locations or remote sales teams', 'Need for consolidated live view'],
       expectedBenefits: ['Real-time pulse on revenue and cash flow', 'Early detection of regional underperformance'],
       limitations: ['Requires clear definition of target KPIs'],
-      pricingRange: '$5,000 - $20,000',
+      pricingRange: '₹60,000 - ₹2,50,000',
       implementationComplexity: 'Medium',
       deliveryRequirements: ['Executive KPI priority list'],
       isActive: true,
@@ -588,7 +626,7 @@ function seedDefaultServices() {
       qualifyingRequirements: ['Local servers or unreliable shared hosting', 'Compliance and uptime demands'],
       expectedBenefits: ['99.99% uptime SLA', 'Disaster recovery and automated snapshots', 'Zero physical hardware maintenance'],
       limitations: ['Planned migration maintenance window required'],
-      pricingRange: '$8,000 - $35,000',
+      pricingRange: '₹95,000 - ₹4,00,000',
       implementationComplexity: 'High',
       deliveryRequirements: ['Server root access and network configuration permissions'],
       isActive: true,
@@ -602,7 +640,7 @@ function seedDefaultServices() {
       qualifyingRequirements: ['Two or more incompatible software tools in active daily use'],
       expectedBenefits: ['Synchronized customer records', 'Instant notification triggers', 'Streamlined finance reconciliation'],
       limitations: ['Subject to third-party vendor API rate limits'],
-      pricingRange: '$5,000 - $22,000',
+      pricingRange: '₹65,000 - ₹2,50,000',
       implementationComplexity: 'Medium',
       deliveryRequirements: ['API keys and test sandbox environments'],
       isActive: true,
@@ -616,7 +654,7 @@ function seedDefaultServices() {
       qualifyingRequirements: ['Need for non-biased technical roadmap and vendor vetting'],
       expectedBenefits: ['Prevention of costly tech stack mistakes', 'Optimized vendor negotiations', 'Clear execution roadmap'],
       limitations: ['Advisory scope; implementation billed separately'],
-      pricingRange: '$3,000 - $15,000 / month',
+      pricingRange: '₹40,000 - ₹1,80,000 / month',
       implementationComplexity: 'Low',
       deliveryRequirements: ['Executive stakeholder access and existing tech documentation'],
       isActive: true,
@@ -630,7 +668,7 @@ function seedDefaultServices() {
       qualifyingRequirements: ['Team of 5+ technical or operations personnel'],
       expectedBenefits: ['Rapid technology adoption', 'Boosted employee productivity', 'Reduced external vendor dependency'],
       limitations: ['Requires committed staff training hours'],
-      pricingRange: '$2,500 - $12,000',
+      pricingRange: '₹35,000 - ₹1,50,000',
       implementationComplexity: 'Low',
       deliveryRequirements: ['Training schedule and attendee list'],
       isActive: true,
@@ -1238,7 +1276,172 @@ export function resetAccountData() {
   // Ensure default services, team, and industry catalogue exist
   seedDefaultServices();
   seedDefaultUsersAndTeams();
+  // Seed default 14-Industry Catalogue if empty
   seedIndustryCatalogue();
+  // Ensure real uploaded/extracted records are synced as live leads
+  syncGivenDataOnly();
+}
+
+export function syncGivenDataOnly() {
+  // 1. Remove synthetic loop leads and mock proposals
+  db.prepare("DELETE FROM leads WHERE customer_name LIKE 'Client %' OR customer_name LIKE 'Prospect %' OR customer_name LIKE 'Past %'").run();
+  db.prepare("DELETE FROM proposals WHERE title LIKE '%Contract Package' OR title LIKE '%Historical%'").run();
+
+  // 2. Fetch all real extracted records
+  const records = db.prepare('SELECT * FROM extracted_records').all() as any[];
+  if (!records.length) return;
+
+  // 3. Fetch all real customer analyses
+  const analyses = db.prepare('SELECT record_id, recommended_services FROM customer_analyses').all() as any[];
+  const analysisMap = new Map<string, any[]>();
+  for (const a of analyses) {
+    if (a.record_id && a.recommended_services) {
+      try {
+        const parsed = JSON.parse(a.recommended_services);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          analysisMap.set(a.record_id, parsed);
+        }
+      } catch {}
+    }
+  }
+
+  // 4. Ensure each real extracted record has a corresponding lead in the CRM
+  const insertLead = db.prepare(`
+    INSERT INTO leads (
+      id, extracted_record_id, customer_name, company_name, email, phone,
+      industry, location, lead_source, lead_status, pipeline_value, recommended_service,
+      website, digital_presence, analysis_status, priority, outcome, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const existingLeads = db.prepare('SELECT extracted_record_id FROM leads WHERE extracted_record_id IS NOT NULL').all() as { extracted_record_id: string }[];
+  const existingSet = new Set(existingLeads.map(l => l.extracted_record_id));
+
+  db.transaction(() => {
+    for (const rec of records) {
+      if (existingSet.has(rec.id)) continue;
+
+      const recAnalyses = analysisMap.get(rec.id);
+      const isAnalyzed = rec.status === 'analyzed' || !!recAnalyses;
+      const topService = recAnalyses && recAnalyses[0] ? recAnalyses[0].serviceName : null;
+
+      const leadId = uuidv4();
+      const status = isAnalyzed ? 'Analyzed' : 'New Lead';
+      const pipelineValue = isAnalyzed ? 120000 : 45000;
+      const analysisStatus = isAnalyzed ? 'Analysed' : 'New';
+      const priority = isAnalyzed ? 'High' : 'Medium';
+      const dateStr = rec.created_at || new Date().toISOString().replace('T', ' ').slice(0, 19);
+
+      insertLead.run(
+        leadId,
+        rec.id,
+        rec.customer_name || 'Prospect Contact',
+        rec.company_name || 'Prospect Business',
+        rec.email || null,
+        rec.phone || null,
+        rec.industry || 'General Business',
+        rec.location || 'Coimbatore',
+        'Document Import',
+        status,
+        pipelineValue,
+        topService,
+        rec.website || null,
+        rec.digital_presence || null,
+        analysisStatus,
+        priority,
+        'Pending',
+        dateStr,
+        dateStr
+      );
+    }
+
+    // 5. Sync real recommendations into service_recommendations table
+    db.prepare('DELETE FROM service_recommendations').run();
+    const insertRec = db.prepare(`
+      INSERT INTO service_recommendations (
+        id, record_id, service_id, service_name, category, rank, relevance_score, suitability_explanation, comparison, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '{}', datetime('now'))
+    `);
+
+    const catalog = db.prepare('SELECT id, name FROM service_catalog').all() as { id: string; name: string }[];
+    const findServiceId = (sName: string): string => {
+      const lower = sName.toLowerCase();
+      const match = catalog.find(c => lower.includes(c.name.toLowerCase()) || c.name.toLowerCase().includes(lower));
+      if (match) return match.id;
+      if (lower.includes('website') || lower.includes('menu')) return catalog.find(c => c.name.includes('Website'))?.id || catalog[1].id;
+      if (lower.includes('app') || lower.includes('portal') || lower.includes('ordering')) return catalog.find(c => c.name.includes('Application'))?.id || catalog[2].id;
+      if (lower.includes('workflow') || lower.includes('automation') || lower.includes('loyalty')) return catalog.find(c => c.name.includes('Automated'))?.id || catalog[5].id;
+      if (lower.includes('ai') || lower.includes('machine')) return catalog[0].id;
+      return catalog[0].id;
+    };
+
+    for (const [recordId, recList] of analysisMap.entries()) {
+      recList.forEach((s, idx) => {
+        insertRec.run(
+          uuidv4(),
+          recordId,
+          findServiceId(s.serviceName),
+          s.serviceName,
+          s.serviceCategory || 'Tech Solution',
+          idx + 1,
+          s.priorityScore?.total || 88,
+          s.whyNeeded || s.proposedSolution || 'Recommended based on business profile'
+        );
+      });
+    }
+
+    // 6. Seed real initial follow-up tasks if none exist
+    const taskCount = (db.prepare('SELECT COUNT(*) as cnt FROM follow_up_tasks').get() as { cnt: number }).cnt;
+    if (taskCount === 0) {
+      const analyzedLeads = db.prepare("SELECT id, customer_name, company_name, recommended_service FROM leads WHERE lead_status = 'Analyzed' LIMIT 3").all() as any[];
+      const todayStr = new Date().toISOString().split('T')[0];
+      const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+      const adminUser = db.prepare("SELECT id FROM users LIMIT 1").get() as { id: string } | undefined;
+      const validUserId = adminUser?.id || null;
+
+      const insertTask = db.prepare(`
+        INSERT INTO follow_up_tasks (id, lead_id, user_id, task_type, title, description, due_date, priority, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'upcoming')
+      `);
+
+      if (analyzedLeads[0]) {
+        insertTask.run(
+          uuidv4(),
+          analyzedLeads[0].id,
+          validUserId,
+          'call',
+          `Follow up with ${analyzedLeads[0].company_name}`,
+          `Call ${analyzedLeads[0].customer_name} regarding ${analyzedLeads[0].recommended_service || 'Digital Transformation'}`,
+          todayStr,
+          'high'
+        );
+      }
+      if (analyzedLeads[1]) {
+        insertTask.run(
+          uuidv4(),
+          analyzedLeads[1].id,
+          validUserId,
+          'proposal',
+          `Send proposal to ${analyzedLeads[1].company_name}`,
+          `Deliver formal proposal package for ${analyzedLeads[1].recommended_service || 'Modern Website & Automation'}`,
+          todayStr,
+          'high'
+        );
+      }
+      if (analyzedLeads[2]) {
+        insertTask.run(
+          uuidv4(),
+          analyzedLeads[2].id,
+          validUserId,
+          'email',
+          `Prepare outreach email for ${analyzedLeads[2].company_name}`,
+          `Schedule introductory email demo sequence`,
+          tomorrowStr,
+          'medium'
+        );
+      }
+    }
+  })();
 }
 
 // Initialize on module load

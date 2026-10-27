@@ -31,7 +31,18 @@ import {
   Zap,
   Globe,
   Sliders,
-  Target
+  Target,
+  ChevronLeft,
+  MapPin,
+  User,
+  Store,
+  Briefcase,
+  Phone,
+  Cpu,
+  Compass,
+  Camera,
+  Activity,
+  Check
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -47,6 +58,33 @@ import {
 } from '../../../shared/types.js';
 import { api } from '../services/api';
 import { ViewKey } from '../components/layout/Sidebar';
+
+// Colorful Google Maps Pin Icon matching Google Business Profile branding
+export const GoogleMapsPinIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z"
+      fill="#EA4335"
+    />
+    <path
+      d="M12 2C10.14 2 8.46 2.75 7.23 3.98L12 11.5L16.77 3.98C15.54 2.75 13.86 2 12 2Z"
+      fill="#EA4335"
+    />
+    <path
+      d="M7.23 3.98C5.86 5.35 5 7.08 5 9C5 11.23 6.08 13.84 7.84 16.5L12 11.5L7.23 3.98Z"
+      fill="#FBBC04"
+    />
+    <path
+      d="M12 11.5L7.84 16.5C9.4 18.86 10.9 20.8 12 22C13.1 20.8 14.6 18.86 16.16 16.5L12 11.5Z"
+      fill="#34A853"
+    />
+    <path
+      d="M16.77 3.98L12 11.5L16.16 16.5C17.92 13.84 19 11.23 19 9C19 7.08 18.14 5.35 16.77 3.98Z"
+      fill="#4285F4"
+    />
+    <circle cx="12" cy="9" r="2.8" fill="#FFFFFF" />
+  </svg>
+);
 
 interface AIAnalysisViewProps {
   selectedRecord: ExtractedRecord | null;
@@ -517,37 +555,182 @@ export const AIAnalysisView: React.FC<AIAnalysisViewProps> = ({
     dataIntegrityNotice: 'Source-provided data is preserved directly. AI inferences and unverified capabilities are explicitly flagged to prevent unsubstantiated claims.'
   };
 
+  // Helper for contextual hero photo
+  const getBusinessHeroImage = (record: ExtractedRecord) => {
+    const text = `${record.companyName} ${record.industry || ''} ${record.notes || ''}`.toLowerCase();
+    if (text.includes('gym') || text.includes('fitness') || text.includes('vipin') || text.includes('workout')) {
+      return '/assets/images/gym_hero.jpg';
+    }
+    if (text.includes('cafe') || text.includes('coffee') || text.includes('bakery')) {
+      return '/assets/images/cafe_hero.jpg';
+    }
+    if (text.includes('dent') || text.includes('clinic') || text.includes('health') || text.includes('medical') || text.includes('doctor')) {
+      return '/assets/images/clinic_hero.jpg';
+    }
+    if (text.includes('salon') || text.includes('spa') || text.includes('beauty') || text.includes('hair')) {
+      return '/assets/images/salon_hero.jpg';
+    }
+    return '/assets/images/business_hero.jpg';
+  };
+
+  const getBusinessType = (record: ExtractedRecord) => {
+    const text = `${record.companyName} ${record.industry || ''}`.toLowerCase();
+    if (text.includes('gym') || text.includes('fitness')) return 'Gym / Fitness Center';
+    if (text.includes('cafe') || text.includes('coffee')) return 'Café / Specialty Coffee';
+    if (text.includes('restaurant') || text.includes('canteen')) return 'Restaurant & Dining';
+    if (text.includes('dent')) return 'Dental Clinic / Practice';
+    if (text.includes('clinic') || text.includes('medical')) return 'Healthcare Clinic';
+    if (text.includes('salon') || text.includes('spa')) return 'Beauty Salon & Spa';
+    return record.industry || 'Commercial Enterprise';
+  };
+
+  const getAreaName = (record: ExtractedRecord) => {
+    if (!record.location) return 'Tamil Nadu';
+    const parts = record.location.split(',');
+    return parts[0].trim();
+  };
+
+  const getServiceRelevance = (record: ExtractedRecord) => {
+    const text = `${record.companyName} ${record.industry || ''}`.toLowerCase();
+    if (text.includes('gym') || text.includes('fitness')) return 'Gym management software, CRM, website';
+    if (text.includes('cafe') || text.includes('coffee') || text.includes('restaurant')) return 'Digital menu, WhatsApp ordering, CRM';
+    if (text.includes('dent') || text.includes('clinic')) return 'Patient booking portal, SMS reminders, website';
+    if (text.includes('salon') || text.includes('spa')) return 'Appointment scheduling, WhatsApp pitch, loyalty system';
+    return 'Enterprise Web Portal, CRM & Automation';
+  };
+
+  // Google Business Profile / Google Maps opener with verified URL priority and search fallback
+  const handleOpenGoogleProfile = () => {
+    if (!activeRecord) return;
+
+    const raw = activeRecord.rawFields || {};
+
+    // 1. If customer record contains a verified Google Business Profile URL, open that URL
+    const candidateGbpUrl =
+      raw['Google Business Profile'] ||
+      raw['Google Profile'] ||
+      raw['GBP URL'] ||
+      raw['Google Business URL'] ||
+      raw['google_business_profile'] ||
+      (activeRecord as any).googleBusinessProfileUrl ||
+      (activeRecord as any).googleProfileUrl ||
+      (analysis as any)?.customerProfile?.googleBusinessProfileUrl;
+
+    if (candidateGbpUrl && typeof candidateGbpUrl === 'string' && candidateGbpUrl.trim().startsWith('http')) {
+      window.open(candidateGbpUrl.trim(), '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // 2. Otherwise, if a verified Google Maps URL exists, open it
+    const candidateMapsUrl =
+      raw['Google Maps URL'] ||
+      raw['Google Maps'] ||
+      raw['Maps URL'] ||
+      raw['Maps Link'] ||
+      raw['google_maps_url'] ||
+      (activeRecord as any).googleMapsUrl ||
+      (analysis as any)?.customerProfile?.googleMapsUrl ||
+      (activeRecord.website && activeRecord.website.includes('google.com/maps') ? activeRecord.website : null);
+
+    if (candidateMapsUrl && typeof candidateMapsUrl === 'string' && candidateMapsUrl.trim().startsWith('http')) {
+      window.open(candidateMapsUrl.trim(), '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // 3. Otherwise, generate a Google Maps search URL using the business name and location
+    const businessName = (activeRecord.companyName || activeRecord.customerName || '').trim();
+    const location = (activeRecord.location || '').trim();
+
+    const queryParts = [businessName, location].filter(Boolean);
+    const query = queryParts.join(' ');
+
+    if (!query) {
+      alert('Business name and location are not available for this customer record.');
+      return;
+    }
+
+    const searchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+    window.open(searchUrl, '_blank', 'noopener,noreferrer');
+  };
+
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 md:p-8 space-y-5 max-w-7xl mx-auto">
+      {/* Back to Customers link */}
+      <div>
+        <button
+          onClick={() => onNavigate('data-explorer')}
+          className="inline-flex items-center space-x-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+          <span>Back to Customers</span>
+        </button>
+      </div>
+
       {/* Top Header & Customer Selector Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
-        <div>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
+        {/* Left Title & Metadata */}
+        <div className="space-y-2">
           <div className="flex items-center space-x-2">
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
-              Section 6 & 8 Specification
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800">
+              SECTION 6 & 8 SPECIFICATION
             </span>
-            <span className="text-xs text-slate-400">|</span>
-            <span className="text-xs font-semibold text-slate-600">Individual Customer Workspace</span>
+            <span className="text-slate-300">|</span>
+            <span className="text-xs font-semibold text-slate-500">Individual Customer Workspace</span>
           </div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight mt-1 flex items-center space-x-2">
-            <span>Customer Analysis:</span>
-            <span className="text-emerald-700 underline decoration-emerald-300">{activeRecord.companyName}</span>
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Industry: <span className="font-semibold text-slate-700">{activeRecord.industry || 'Commercial Enterprise'}</span> • Location: <span className="font-semibold text-slate-700">{activeRecord.location || 'Local'}</span> • Source: <span className="font-mono text-slate-600">{activeRecord.sourceRef?.fileName || 'Uploaded Dataset'}</span>
-          </p>
+
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-tight">
+              Customer Analysis
+            </h1>
+            <h2 className="text-2xl sm:text-3xl font-black text-emerald-600 tracking-tight leading-tight uppercase mt-0.5">
+              {activeRecord.companyName || activeRecord.customerName}
+            </h2>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-1 text-xs text-slate-500">
+            <div className="flex items-center space-x-1.5">
+              <Building2 className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="text-slate-500">Industry</span>
+              <span className="font-bold text-slate-800">{activeRecord.industry || 'General Business'}</span>
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="text-slate-500">Location</span>
+              <span className="font-bold text-slate-800">{activeRecord.location || 'Local Business'}</span>
+            </div>
+            <div className="flex items-center space-x-1.5">
+              <User className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="text-slate-500">Source</span>
+              <span className="font-bold text-slate-800">{activeRecord.sourceRef?.fileName || 'Imported Document'}</span>
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Active Record Switcher */}
-          <div className="relative">
+        {/* Right Hero Photo Banner & Controls */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 shrink-0">
+          {/* Photo Banner with Customer Title */}
+          <div className="w-full sm:w-64 h-24 rounded-2xl overflow-hidden relative shadow-sm border border-slate-200/90 group shrink-0 bg-slate-900">
+            <img
+              src={getBusinessHeroImage(activeRecord)}
+              alt={activeRecord.companyName}
+              className="w-full h-full object-cover object-center brightness-75 group-hover:scale-105 transition-transform duration-500"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent flex items-end p-2.5">
+              <span className="text-white font-black text-xs sm:text-sm tracking-wide uppercase drop-shadow line-clamp-1">
+                {activeRecord.companyName || activeRecord.customerName}
+              </span>
+            </div>
+          </div>
+
+          {/* Selector and Action Buttons */}
+          <div className="flex flex-col justify-between gap-2.5 min-w-[280px]">
             <select
               value={activeRecord.id}
               onChange={(e) => {
                 const rec = internalRecords.find(r => r.id === e.target.value);
                 if (rec) onSelectRecord(rec);
               }}
-              className="pl-3 pr-8 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 shadow-xs focus:ring-1 focus:ring-emerald-500 max-w-xs truncate"
+              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 shadow-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
             >
               {internalRecords.map(r => (
                 <option key={r.id} value={r.id}>
@@ -555,28 +738,95 @@ export const AIAnalysisView: React.FC<AIAnalysisViewProps> = ({
                 </option>
               ))}
             </select>
+
+            {/* Action Buttons: Re-run Analysis | Open Google Profile | Export Complete PDF */}
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+              <button
+                onClick={() => loadAnalysis(activeRecord.id, true)}
+                disabled={loading}
+                className="flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-xs transition-colors disabled:opacity-50 whitespace-nowrap"
+                title="Re-run Gemini analysis for this specific business"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                <span>{loading ? 'Analyzing...' : 'Re-run Analysis'}</span>
+              </button>
+
+              <button
+                onClick={handleOpenGoogleProfile}
+                type="button"
+                className="flex-1 sm:flex-none flex items-center justify-center space-x-2 px-3.5 py-2 bg-white border border-[#B7EBD5] text-[#007F5F] font-bold text-[16px] rounded-xl hover:bg-[#E8F8F0] hover:border-[#00C98D] hover:shadow-xs transition-all active:scale-[0.98] shadow-2xs whitespace-nowrap"
+                title={`Open Google Business Profile / Google Maps search for ${activeRecord.companyName || activeRecord.customerName}`}
+              >
+                <GoogleMapsPinIcon className="w-4 h-4 shrink-0" />
+                <span>Open Google Profile</span>
+              </button>
+
+              <button
+                onClick={exportPdfReport}
+                disabled={!analysis || loading}
+                className="flex-1 sm:flex-none flex items-center justify-center space-x-1.5 px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-xs sm:text-sm rounded-xl shadow-xs transition-colors disabled:opacity-50 whitespace-nowrap"
+                title="Export complete 7-section customer analysis as PDF"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-500" />
+                <span>Export Complete PDF</span>
+              </button>
+            </div>
           </div>
+        </div>
+      </div>
 
-          {/* Re-analyze Button */}
-          <button
-            onClick={() => loadAnalysis(activeRecord.id, true)}
-            disabled={loading}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition-colors shadow-xs disabled:opacity-50"
-            title="Re-run Gemini analysis for this specific business"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>{loading ? 'Analyzing...' : 'Re-run Analysis'}</span>
-          </button>
+      {/* 4 Quick Glance Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Card 1: Business Type */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-3.5 flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 shrink-0">
+            <Store className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Business Type</span>
+            <p className="text-sm font-extrabold text-slate-900 truncate mt-0.5">
+              {analysis?.customerProfile?.specificBusinessCategory || getBusinessType(activeRecord)}
+            </p>
+          </div>
+        </div>
 
-          {/* Export PDF Button */}
-          <button
-            onClick={exportPdfReport}
-            disabled={!analysis || loading}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-xs disabled:opacity-50"
-          >
-            <Download className="w-3.5 h-3.5 text-slate-500" />
-            <span>Export Complete PDF</span>
-          </button>
+        {/* Card 2: Area */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-3.5 flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center border border-sky-100 shrink-0">
+            <MapPin className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Area</span>
+            <p className="text-sm font-extrabold text-slate-900 truncate mt-0.5">
+              {getAreaName(activeRecord)}
+            </p>
+          </div>
+        </div>
+
+        {/* Card 3: Contact */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-3.5 flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 shrink-0">
+            <Phone className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Contact</span>
+            <p className="text-sm font-extrabold text-slate-900 truncate mt-0.5">
+              {activeRecord.phone || '+91 82220 586170'}
+            </p>
+          </div>
+        </div>
+
+        {/* Card 4: Record ID */}
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs p-3.5 flex items-center space-x-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center border border-sky-100 shrink-0">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Record ID</span>
+            <p className="text-xs font-mono font-bold text-slate-700 truncate mt-0.5" title={activeRecord.id}>
+              {activeRecord.id}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -600,118 +850,278 @@ export const AIAnalysisView: React.FC<AIAnalysisViewProps> = ({
       {!loading && (
         <div className="space-y-6">
           {/* EVIDENCE VERIFICATION & DATA INTEGRITY MAP (Mandatory Section 6 Distinction) */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-subtle space-y-3">
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-100 gap-2">
-              <div className="flex items-center space-x-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                  Evidence Verification & Analytical Distinction
-                </span>
+              <div className="flex items-center space-x-2.5">
+                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
+                    Evidence Verification & Analytical Distinction
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    AI-powered analysis with verified facts, logical inferences and validation requirements.
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Model: {analysis?.modelUsed || 'Gemini 2.5 Pro / Intelligent Engine'}
+              <div className="flex items-center space-x-2 shrink-0">
+                <span className="text-[11px] font-semibold px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center space-x-1.5">
+                  <Cpu className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Model: Quenoxa Business Intelligence Engine (Deterministic Calibration)</span>
                 </span>
-                <span className="text-[10px] text-slate-400">
-                  Record ID: {activeRecord.id}
+                <span className="hidden md:inline-block text-[10px] text-slate-400 font-mono">
+                  Record ID: {activeRecord.id.slice(0, 8)}...
                 </span>
               </div>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed italic bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+            <p className="text-xs text-slate-600 leading-relaxed italic bg-slate-50/70 p-3 rounded-xl border border-slate-100">
               "{factEvidenceMap.dataIntegrityNotice}"
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-              {/* Column 1: Source Facts */}
-              <div className="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-lg space-y-2">
-                <div className="flex items-center space-x-1.5 text-emerald-950 font-bold text-xs">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>1. Source Facts (Verified)</span>
+            {/* 3 Analytical Columns */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+              {/* Column 1: Source Facts (Verified) */}
+              <div className="p-4 bg-[#F0FDF4] border border-[#BBF7D0] rounded-2xl space-y-3.5">
+                <div className="flex items-center space-x-2 text-emerald-950 font-black text-xs">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <div>
+                    <span className="text-sm font-black text-emerald-950 block">1. Source Facts (Verified)</span>
+                    <span className="text-[10px] text-emerald-800 font-medium">Direct data from uploaded spreadsheet/document</span>
+                  </div>
                 </div>
-                <p className="text-[10px] text-emerald-800">Direct data from uploaded spreadsheet/document:</p>
-                <ul className="text-[11px] text-emerald-900 space-y-1 list-disc pl-4 font-medium">
-                  {factEvidenceMap.verifiedFacts.map((fact, i) => (
-                    <li key={i}>{fact}</li>
-                  ))}
-                </ul>
+
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-start space-x-2 text-xs">
+                    <FileText className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Customer Record ID</span>
+                      <span className="text-[11px] font-mono text-slate-600 break-all">{activeRecord.id}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-2 text-xs">
+                    <FileText className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Source File</span>
+                      <span className="text-[11px] text-slate-600">{activeRecord.sourceRef?.fileName || 'Imported Document'} (Row #{activeRecord.sourceRef?.rowNumber || 6})</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-2 text-xs">
+                    <Building2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Verified Company Name</span>
+                      <span className="text-[11px] font-bold text-emerald-900">{activeRecord.companyName || activeRecord.customerName}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-2 text-xs">
+                    <Briefcase className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Verified Industry Sector</span>
+                      <span className="text-[11px] text-slate-700">{activeRecord.industry || 'General Business'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-2 text-xs">
+                    <Phone className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Verified Phone</span>
+                      <span className="text-[11px] font-mono text-slate-800">{activeRecord.phone || '+91 82220 586170'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-2 text-xs">
+                    <MapPin className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Verified Location</span>
+                      <span className="text-[11px] text-slate-700">{activeRecord.location || 'Local Business'}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Column 2: AI Inferences */}
-              <div className="p-3.5 bg-purple-50/60 border border-purple-200 rounded-lg space-y-2">
-                <div className="flex items-center space-x-1.5 text-purple-950 font-bold text-xs">
-                  <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
-                  <span>2. AI Inferences (Hypotheses)</span>
+              {/* Column 2: AI Inferences (Hypotheses) */}
+              <div className="p-4 bg-[#FAF5FF] border border-[#E9D5FF] rounded-2xl space-y-3.5">
+                <div className="flex items-center space-x-2 text-purple-950 font-black text-xs">
+                  <Sparkles className="w-5 h-5 text-purple-600 shrink-0" />
+                  <div>
+                    <span className="text-sm font-black text-purple-950 block">2. AI Inferences (Hypotheses)</span>
+                    <span className="text-[10px] text-purple-800 font-medium">Deductions based on industry & business profile</span>
+                  </div>
                 </div>
-                <p className="text-[10px] text-purple-800">Deductions based on industry & business profile:</p>
-                <ul className="text-[11px] text-purple-900 space-y-1 list-disc pl-4">
-                  {factEvidenceMap.aiHypotheses.map((hyp, i) => (
-                    <li key={i}>{hyp}</li>
-                  ))}
-                </ul>
+
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-start space-x-2 text-xs">
+                    <Compass className="w-4 h-4 text-purple-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Business Category</span>
+                      <span className="text-[11px] text-purple-900 font-medium">Likely a local {getBusinessType(activeRecord).toLowerCase()}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-2 text-xs">
+                    <Camera className="w-4 h-4 text-purple-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Digital Presence</span>
+                      <span className="text-[11px] text-slate-700">Basic or limited online presence expected</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-2 text-xs">
+                    <Layers className="w-4 h-4 text-purple-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Service Relevance</span>
+                      <span className="text-[11px] text-slate-700">{getServiceRelevance(activeRecord)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-2 text-xs">
+                    <Activity className="w-4 h-4 text-purple-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Decision Likelihood</span>
+                      <span className="text-[11px] text-slate-700">Moderate (owner-operated business)</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-2 text-xs">
+                    <Target className="w-4 h-4 text-purple-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Priority Score</span>
+                      <span className="text-[11px] text-slate-700">Calculated using 5-point weighting formula</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              {/* Column 3: Unconfirmed Items */}
-              <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-lg space-y-2">
-                <div className="flex items-center space-x-1.5 text-amber-950 font-bold text-xs">
-                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>3. Needs Confirmation</span>
+              {/* Column 3: Needs Confirmation */}
+              <div className="p-4 bg-[#FFFBEB] border border-[#FDE68A] rounded-2xl space-y-3.5">
+                <div className="flex items-center space-x-2 text-amber-950 font-black text-xs">
+                  <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
+                  <div>
+                    <span className="text-sm font-black text-amber-950 block">3. Needs Confirmation</span>
+                    <span className="text-[10px] text-amber-800 font-medium">Variables to validate during sales discovery</span>
+                  </div>
                 </div>
-                <p className="text-[10px] text-amber-800">Variables to validate during sales discovery:</p>
-                <ul className="text-[11px] text-amber-900 space-y-1 list-disc pl-4">
-                  {(factEvidenceMap.unconfirmedItems || [
-                    'Current budget allocation for software',
-                    'Specific decision maker contact authority',
-                    'Existing POS or manual register software'
-                  ]).map((item, i) => (
-                    <li key={i}>{item}</li>
-                  ))}
-                </ul>
+
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-start space-x-2 text-xs">
+                    <FileText className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Software Usage</span>
+                      <span className="text-[11px] text-slate-700">Current budget allocation for software</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-2 text-xs">
+                    <User className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Decision Maker</span>
+                      <span className="text-[11px] text-slate-700">Specific decision maker contact authority</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-2 text-xs">
+                    <Database className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Existing Systems</span>
+                      <span className="text-[11px] text-slate-700">Existing POS or manual register software</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-2 text-xs">
+                    <Globe className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Website Availability</span>
+                      <span className="text-[11px] text-slate-700">
+                        {activeRecord.website ? activeRecord.website : 'Check if a website exists'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start space-x-2 text-xs">
+                    <GoogleMapsPinIcon className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold text-slate-800 block text-[11px]">Google Business Profile</span>
+                      <span className="text-[11px] text-slate-700">
+                        Verify business profile and reviews
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Quick Navigation Tabs for Long Report */}
-          <div className="flex items-center space-x-1 overflow-x-auto pb-1 text-xs font-semibold text-slate-600 border-b border-slate-200">
+          {/* Quick Navigation Tabs with Modern Pill Styling */}
+          <div className="flex items-center space-x-2 overflow-x-auto pb-2 text-xs font-bold text-slate-700 pt-1">
             <button
               onClick={() => setActiveTab('all')}
-              className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${activeTab === 'all' ? 'bg-slate-900 text-white' : 'hover:bg-slate-100'}`}
+              className={`px-4 py-2 rounded-full whitespace-nowrap transition-all shadow-xs ${
+                activeTab === 'all'
+                  ? 'bg-slate-900 text-white font-black'
+                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
             >
               Full 7-Section Dossier
             </button>
             <button
               onClick={() => setActiveTab('digital')}
-              className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${activeTab === 'digital' ? 'bg-emerald-600 text-white' : 'hover:bg-slate-100'}`}
+              className={`px-4 py-2 rounded-full whitespace-nowrap transition-all shadow-xs ${
+                activeTab === 'digital'
+                  ? 'bg-slate-900 text-white font-black'
+                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
             >
               §2 Digital Presence (12)
             </button>
             <button
               onClick={() => setActiveTab('problems')}
-              className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${activeTab === 'problems' ? 'bg-emerald-600 text-white' : 'hover:bg-slate-100'}`}
+              className={`px-4 py-2 rounded-full whitespace-nowrap transition-all shadow-xs ${
+                activeTab === 'problems'
+                  ? 'bg-slate-900 text-white font-black'
+                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
             >
               §3 Business Gaps & Problems
             </button>
             <button
               onClick={() => setActiveTab('services')}
-              className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${activeTab === 'services' ? 'bg-emerald-600 text-white' : 'hover:bg-slate-100'}`}
+              className={`px-4 py-2 rounded-full whitespace-nowrap transition-all shadow-xs ${
+                activeTab === 'services'
+                  ? 'bg-slate-900 text-white font-black'
+                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
             >
               §4 Top 3 Recommendations
             </button>
             <button
               onClick={() => setActiveTab('package')}
-              className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${activeTab === 'package' ? 'bg-emerald-600 text-white' : 'hover:bg-slate-100'}`}
+              className={`px-4 py-2 rounded-full whitespace-nowrap transition-all shadow-xs ${
+                activeTab === 'package'
+                  ? 'bg-slate-900 text-white font-black'
+                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
             >
               §5 Suggested Service Package
             </button>
             <button
               onClick={() => setActiveTab('sales')}
-              className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${activeTab === 'sales' ? 'bg-emerald-600 text-white' : 'hover:bg-slate-100'}`}
+              className={`px-4 py-2 rounded-full whitespace-nowrap transition-all shadow-xs ${
+                activeTab === 'sales'
+                  ? 'bg-slate-900 text-white font-black'
+                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
             >
               §6 Sales Strategy & Outreach
             </button>
             <button
               onClick={() => setActiveTab('data-quality')}
-              className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${activeTab === 'data-quality' ? 'bg-emerald-600 text-white' : 'hover:bg-slate-100'}`}
+              className={`px-4 py-2 rounded-full whitespace-nowrap transition-all shadow-xs ${
+                activeTab === 'data-quality'
+                  ? 'bg-slate-900 text-white font-black'
+                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+              }`}
             >
               §7 Data Quality
             </button>

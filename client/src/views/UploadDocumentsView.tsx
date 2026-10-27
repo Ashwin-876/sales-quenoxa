@@ -86,7 +86,7 @@ export const UploadDocumentsView: React.FC<UploadDocumentsViewProps> = ({
   };
 
   return (
-    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
         <div>
@@ -218,91 +218,97 @@ export const UploadDocumentsView: React.FC<UploadDocumentsViewProps> = ({
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase tracking-wider">
+              <thead className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th className="py-3 px-4">Filename</th>
-                  <th className="py-3 px-4">Type & Size</th>
-                  <th className="py-3 px-4">Extracted Records</th>
-                  <th className="py-3 px-4">Data Quality Flags</th>
-                  <th className="py-3 px-4">Imported At</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4 w-full min-w-[280px]">Filename</th>
+                  <th className="py-3 px-4 whitespace-nowrap">Type & Size</th>
+                  <th className="py-3 px-4 whitespace-nowrap text-center">Extracted Records</th>
+                  <th className="py-3 px-4 whitespace-nowrap">Data Quality Flags</th>
+                  <th className="py-3 px-4 whitespace-nowrap text-center">Imported At</th>
+                  <th className="py-3 px-4 whitespace-nowrap text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 font-sans">
                 {files.map((file) => (
                   <tr key={file.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4">
-                      <div className="flex items-center space-x-2.5">
-                        <div className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <td className="py-3.5 px-4 min-w-[280px]">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center justify-center shrink-0 shadow-2xs">
                           {file.fileType.includes('xls') || file.fileType === '.csv' ? (
-                            <FileSpreadsheet className="w-4 h-4" />
+                            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
                           ) : (
-                            <FileText className="w-4 h-4" />
+                            <FileText className="w-4 h-4 text-emerald-600" />
                           )}
                         </div>
-                        <div>
-                          <span className="font-semibold text-slate-900">{file.fileName}</span>
+                        <div className="min-w-0">
+                          <span className="font-bold text-slate-900 block truncate text-xs" title={file.fileName}>{file.fileName}</span>
                           {file.sheetNames && file.sheetNames.length > 0 && (
-                            <p className="text-[10px] text-slate-400">Sheet: {file.sheetNames.join(', ')}</p>
+                            <p className="text-[11px] text-slate-400 truncate">Sheet: {file.sheetNames.join(', ')}</p>
                           )}
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-slate-600">
-                      <span className="font-mono font-medium uppercase text-[11px]">{file.fileType}</span>
-                      <span className="text-slate-400 ml-1.5">({(file.fileSize / 1024).toFixed(1)} KB)</span>
+                    <td className="py-3.5 px-4 whitespace-nowrap text-slate-600">
+                      <span className="font-mono font-bold uppercase text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">{file.fileType}</span>
+                      <span className="text-slate-500 ml-1.5 font-medium text-[11px]">({(file.fileSize / 1024).toFixed(1)} KB)</span>
                     </td>
-                    <td className="py-3 px-4">
-                      <span className="font-bold text-emerald-700 text-sm">{file.extractedRecordCount}</span>
-                      <span className="text-slate-500 ml-1">records</span>
+                    <td className="py-3.5 px-4 whitespace-nowrap text-center">
+                      <span className="font-extrabold text-emerald-700 text-xs bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full inline-flex items-center space-x-1">
+                        <span>{file.extractedRecordCount}</span>
+                        <span className="font-semibold text-emerald-600 text-[11px]">records</span>
+                      </span>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-4 whitespace-nowrap">
                       <div className="flex items-center space-x-1.5">
                         {file.duplicateCount > 0 ? (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                             {file.duplicateCount} Duplicates
                           </span>
                         ) : (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-50 text-slate-600 border border-slate-200">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
                             0 Duplicates
                           </span>
                         )}
 
-                        {file.missingValueCount > 0 && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                        {file.missingValueCount > 0 ? (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
                             {file.missingValueCount} Missing
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            0 Missing
                           </span>
                         )}
                         {file.ocrApplied && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
                             OCR Applied
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-slate-500">
-                      {new Date(file.uploadDate).toLocaleDateString()}
+                    <td className="py-3.5 px-4 whitespace-nowrap text-center text-slate-500 font-medium font-mono text-[11px]">
+                      {new Date(file.uploadDate).toLocaleDateString('en-GB')}
                     </td>
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end space-x-2">
+                    <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center justify-end space-x-2">
                         <button
                           onClick={() => onNavigate('ai-analysis')}
-                          className="px-2.5 py-1 text-xs font-semibold bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors flex items-center space-x-1 shadow-xs"
+                          className="px-3 py-1.5 text-xs font-bold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all flex items-center space-x-1.5 shadow-xs shrink-0 cursor-pointer"
                           title="Open Gemini AI Analysis on these extracted records"
                         >
-                          <Sparkles className="w-3 h-3" />
+                          <Sparkles className="w-3.5 h-3.5" />
                           <span>Analyze with AI</span>
                         </button>
                         <button
                           onClick={() => onNavigate('data-explorer')}
-                          className="px-2.5 py-1 text-xs font-semibold bg-white text-slate-700 border border-slate-200 rounded hover:bg-slate-50 transition-colors flex items-center space-x-1"
+                          className="px-3 py-1.5 text-xs font-bold bg-white text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center space-x-1 shadow-2xs shrink-0 cursor-pointer"
                         >
                           <span>Explore</span>
-                          <ArrowRight className="w-3 h-3" />
+                          <ArrowRight className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleDeleteFile(file.id)}
-                          className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all shrink-0 cursor-pointer"
                           title="Delete file"
                         >
                           <Trash2 className="w-4 h-4" />

@@ -222,15 +222,26 @@ Execute the 5-step Analysis and output strict JSON conforming to this schema:
   }
 }`;
 
-        const response = await aiClient.models.generateContent({
-          model,
-          contents: prompt,
-          config: {
-            systemInstruction: this.getSystemInstruction(),
-            responseMimeType: 'application/json',
-            temperature: 0.2
-          }
-        });
+        const timeoutMs = 9000;
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('AI inference timed out after 9s')), timeoutMs)
+        );
+
+        const response = await Promise.race([
+          aiClient.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+              systemInstruction: this.getSystemInstruction(),
+              responseMimeType: 'application/json',
+              temperature: 0.2,
+              thinkingConfig: {
+                thinkingBudget: 0
+              }
+            }
+          }),
+          timeoutPromise
+        ]);
 
         const rawText = response.text || '{}';
         const parsed = JSON.parse(rawText);
@@ -727,7 +738,7 @@ ${signature}`;
   }
 
   // Fallback Builder Helpers (Section 6 & 8 Complete Dossier)
-  private static buildDeterministicAnalysis(
+  public static buildDeterministicAnalysis(
     record: ExtractedRecord,
     activeCatalog: ServiceCatalogItem[],
     matchedIndustry?: any
@@ -1512,7 +1523,7 @@ ${signature}`;
       'Send details on WhatsApp': `Absolutely! I will send our executive one-pager directly to your WhatsApp at ${record.phone} right now. Can we schedule a 5-minute review on Wednesday?`,
       'Call later': `Understood. When would be a better time this week—would Thursday morning at 11 AM work best for you?`,
       'Need management approval': `Makes total sense. We can prepare a customized executive business case slide deck highlighting expected ROI to make that discussion effortless for you.`,
-      'What is your pricing?': `Our projects in ${service.name} typically range around ${service.pricingRange || '$5,000 - $25,000'}, customized based on your system scale and speed requirements.`,
+      'What is your pricing?': `Our projects in ${service.name} typically range around ${service.pricingRange || '₹45,000 - ₹2,50,000'}, customized based on your system scale and speed requirements.`,
       'How will this help our business?': `It directly resolves workflow friction in ${record.industry}, giving your team automated accuracy, lower operating costs, and faster customer turnaround.`,
       'Not interested': `Completely understand. Thank you for your candor. May I send a brief 1-page technology briefing to ${record.email || 'your email'} just for your future reference?`
     };
