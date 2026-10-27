@@ -26,17 +26,32 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL
   : '/api/v1';
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, options);
-  if (!res.ok) {
-    const errorText = await res.text();
-    let parsedError = errorText;
-    try {
-      const j = JSON.parse(errorText);
-      parsedError = j.error || errorText;
-    } catch {}
-    throw new Error(parsedError || `Request failed with status ${res.status}`);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: options?.signal || controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) {
+      const errorText = await res.text();
+      let parsedError = errorText;
+      try {
+        const j = JSON.parse(errorText);
+        parsedError = j.error || errorText;
+      } catch {}
+      throw new Error(parsedError || `Request failed with status ${res.status}`);
+    }
+    return res.json();
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('Connection timed out. Please check your backend connection.');
+    }
+    throw err;
   }
-  return res.json();
 }
 
 export const api = {
