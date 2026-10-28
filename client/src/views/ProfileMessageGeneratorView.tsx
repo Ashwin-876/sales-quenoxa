@@ -196,6 +196,7 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
   const [customerName, setCustomerName] = useState('Ramesh Kumar');
   const [companyName, setCompanyName] = useState('Coimbatore Fitness Hub Unit II');
   const [customerPhone, setCustomerPhone] = useState('+91 98765 43210');
+  const [customerEmail, setCustomerEmail] = useState('ramesh@fitgym64.in');
   const [industry, setIndustry] = useState('Fitness and Gyms');
   const [customIndustry, setCustomIndustry] = useState('');
   const [designation, setDesignation] = useState('Managing Director');
@@ -341,6 +342,7 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
       setCustomerName(selectedRecord.contactPerson || selectedRecord.customerName || 'Business Owner');
       setCompanyName(selectedRecord.companyName || selectedRecord.businessName || 'Business');
       setCustomerPhone(selectedRecord.contactNumber || '');
+      if (selectedRecord.email) setCustomerEmail(selectedRecord.email);
       if (selectedRecord.industry) {
         const match = PREDEFINED_INDUSTRIES.find(i =>
           selectedRecord.industry?.toLowerCase().includes(i.toLowerCase())
@@ -402,6 +404,7 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
     setCompanyName(lead.companyName);
     setCustomerName(lead.customerName);
     setCustomerPhone(lead.phone);
+    setCustomerEmail(lead.email || '');
     if (lead.industry) {
       const match = PREDEFINED_INDUSTRIES.find(i =>
         lead.industry.toLowerCase().includes(i.toLowerCase())
@@ -719,6 +722,48 @@ https://www.quenoxa.com | info@quenoxa.com
     return `https://wa.me/${cleanNum}?text=${textParam}`;
   }, [customerPhone, activeOutputTab, editableContent, outputs]);
 
+  // Gmail Web Composer direct URL for Chrome/Browser
+  const gmailUrl = useMemo(() => {
+    const to = encodeURIComponent((customerEmail || '').trim());
+    const subjectText =
+      activeOutputTab === 'email' && emailSubject
+        ? emailSubject
+        : outputs?.emailSubject || `Business Inquiry: QUENOXA GLOBAL TECHNOLOGIES x ${companyName || 'Business'}`;
+    const bodyText =
+      activeOutputTab === 'email'
+        ? editableContent
+        : outputs?.emailBody || editableContent;
+    const su = encodeURIComponent(subjectText);
+    const body = encodeURIComponent(bodyText);
+    return `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${su}&body=${body}`;
+  }, [customerEmail, companyName, activeOutputTab, emailSubject, editableContent, outputs]);
+
+  const handleOpenGmail = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!customerEmail.trim()) {
+      const emailInput = window.prompt(
+        'Please enter the recipient customer email address for Gmail:',
+        'contact@' + (companyName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'company') + '.com'
+      );
+      if (emailInput && emailInput.trim()) {
+        setCustomerEmail(emailInput.trim());
+        const to = encodeURIComponent(emailInput.trim());
+        const subjectText =
+          activeOutputTab === 'email' && emailSubject
+            ? emailSubject
+            : outputs?.emailSubject || `Business Inquiry: QUENOXA GLOBAL TECHNOLOGIES x ${companyName || 'Business'}`;
+        const bodyText =
+          activeOutputTab === 'email'
+            ? editableContent
+            : outputs?.emailBody || editableContent;
+        const su = encodeURIComponent(subjectText);
+        const body = encodeURIComponent(bodyText);
+        const url = `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${su}&body=${body}`;
+        window.open(url, '_blank');
+        e.preventDefault();
+      }
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-5 max-w-[1650px] mx-auto min-h-screen font-sans text-slate-900">
       {/* ========================================================================= */}
@@ -1009,6 +1054,41 @@ https://www.quenoxa.com | info@quenoxa.com
                 onChange={(e) => setLocation(e.target.value)}
                 className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium text-slate-900"
               />
+            </div>
+          </div>
+
+          {/* Row: Customer Email & Customer Phone */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-700">
+                Customer Email <span className="text-slate-400 font-normal">(for Direct Gmail)</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="email"
+                  placeholder="e.g. ramesh@fitgym64.in"
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  className="w-full pl-9 pr-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium text-slate-900"
+                />
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-700">
+                Customer Phone <span className="text-slate-400 font-normal">(for WhatsApp)</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="tel"
+                  placeholder="e.g. +91 98765 43210"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  className="w-full pl-9 pr-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 font-medium text-slate-900"
+                />
+                <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+              </div>
             </div>
           </div>
 
@@ -1353,29 +1433,67 @@ https://www.quenoxa.com | info@quenoxa.com
               </div>
             ) : editableContent ? (
               <div className="space-y-3">
-                {/* If Email Tab: Show Subject Line input */}
+                {/* If Email Tab: Show Subject Line input & Direct Gmail Launch Banner */}
                 {activeOutputTab === 'email' && (
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
-                      <span>Email Subject Line</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(emailSubject);
-                          alert('Email subject copied!');
-                        }}
-                        className="text-emerald-700 hover:underline flex items-center gap-1 font-semibold"
+                  <div className="space-y-2 p-3.5 rounded-xl bg-red-50/50 border border-red-200/70">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center space-x-2 text-red-950 font-bold">
+                        <Mail className="w-4 h-4 text-red-600" />
+                        <span>Direct Gmail Outreach (Chrome Web Composer)</span>
+                      </div>
+                      <a
+                        href={gmailUrl}
+                        onClick={handleOpenGmail}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center space-x-1.5 px-3 py-1 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg shadow-2xs transition-colors cursor-pointer self-start sm:self-auto"
+                        title="Opens mail.google.com in Chrome with recipient, subject and message body ready to send"
                       >
-                        <Copy className="w-3 h-3" />
-                        Copy Subject
-                      </button>
-                    </label>
-                    <input
-                      type="text"
-                      value={emailSubject}
-                      onChange={(e) => setEmailSubject(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                    />
+                        <Mail className="w-3.5 h-3.5" />
+                        <span>Open in Gmail (Direct)</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-1">
+                      <div className="sm:col-span-5 space-y-1">
+                        <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
+                          Recipient Customer Email
+                        </label>
+                        <input
+                          type="email"
+                          value={customerEmail}
+                          onChange={(e) => setCustomerEmail(e.target.value)}
+                          placeholder="e.g. ramesh@fitgym64.in"
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-red-500"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-7 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block">
+                            Email Subject Line
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(emailSubject);
+                              alert('Email subject copied!');
+                            }}
+                            className="text-red-700 hover:underline flex items-center gap-1 font-semibold text-[10px]"
+                          >
+                            <Copy className="w-3 h-3" />
+                            Copy
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={emailSubject}
+                          onChange={(e) => setEmailSubject(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-red-500"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -1447,12 +1565,26 @@ https://www.quenoxa.com | info@quenoxa.com
                       <span>Export TXT</span>
                     </button>
 
+                    {/* Direct Open in Gmail Action Button */}
+                    <a
+                      href={gmailUrl}
+                      onClick={handleOpenGmail}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                      title="Directly open Gmail in Chrome with pre-filled recipient, subject and message content"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      <span>Open in Gmail</span>
+                    </a>
+
                     {/* Direct WhatsApp Action Button */}
                     <a
                       href={whatsappUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                      title="Open WhatsApp Click-to-Chat"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
                       <span>Open WhatsApp</span>

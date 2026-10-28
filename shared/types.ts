@@ -672,6 +672,8 @@ export interface MarketingCustomerProfile {
   designation?: string;
   location: string;
   website?: string;
+  email?: string;
+  phone?: string;
   requirements?: string;
   preferredChannel: MarketingChannel;
   messageType: MarketingMessageType;
