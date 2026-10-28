@@ -18,7 +18,8 @@ import {
   LogOut,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Wand2
 } from 'lucide-react';
 
 export type ViewKey =
@@ -30,6 +31,7 @@ export type ViewKey =
   | 'cold-call-studio'
   | 'whatsapp-outreach'
   | 'cold-email-studio'
+  | 'marketing-generator'
   | 'crm-leads'
   | 'follow-up-tasks'
   | 'sales-pipeline'
@@ -92,6 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Section 2: SALES OUTREACH
   const outreachItems: { key: ViewKey; label: string; icon: React.FC<any> }[] = [
+    { key: 'marketing-generator', label: 'AI Message Generator', icon: Wand2 },
     { key: 'cold-call-studio', label: 'Cold Call Studio', icon: PhoneCall },
     { key: 'whatsapp-outreach', label: 'WhatsApp Outreach', icon: MessageSquare },
     { key: 'cold-email-studio', label: 'Cold Email Studio', icon: Mail },

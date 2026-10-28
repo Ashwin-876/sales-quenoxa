@@ -653,3 +653,71 @@ export interface SystemSettings {
   maxUploadSizeBytes: number;
   batchProcessingLimit: number;
 }
+
+// ==============================================================================
+// MARKETING MESSAGE GENERATOR TYPES (PROFILE-BASED AI ENGINE)
+// ==============================================================================
+
+export type MarketingChannel = 'WhatsApp' | 'Email' | 'SMS' | 'LinkedIn';
+export type MarketingMessageType = 'Welcome' | 'Introduction' | 'Service Pitch' | 'Follow-up' | 'Brochure Sharing';
+export type MarketingLanguage = 'English' | 'Tamil' | 'Thanglish' | string;
+export type MarketingTone = 'Professional' | 'Friendly' | 'Formal' | 'Short and Direct';
+
+export interface MarketingCustomerProfile {
+  id?: string;
+  customerName: string;
+  companyName: string;
+  industry: string;
+  customIndustry?: string;
+  designation?: string;
+  location: string;
+  website?: string;
+  requirements?: string;
+  preferredChannel: MarketingChannel;
+  messageType: MarketingMessageType;
+  language: MarketingLanguage;
+  tone: MarketingTone;
+  timeZone?: string;
+  greetingOverride?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProviderSettings {
+  companyName: string;
+  senderName: string;
+  website: string;
+  email: string;
+  phone: string;
+}
+
+export interface MarketingRecommendedService {
+  name: string;
+  category?: string;
+  benefit: string;
+  reason: string;
+}
+
+export interface GeneratedMarketingOutputs {
+  id?: string;
+  profileId?: string;
+  customerName: string;
+  companyName: string;
+  industry: string;
+  recommendedServices: MarketingRecommendedService[];
+  detectedGreeting: string;
+  greetingType: 'Morning' | 'Afternoon' | 'Evening';
+  introductionMessage: string;
+  servicePitchMessage: string;
+  brochureSharingMessage: string;
+  followupMessage: string;
+  emailSubject: string;
+  emailBody: string;
+  whatsappShortMessage: string;
+  industryServiceList: string;
+  channel: MarketingChannel;
+  language: MarketingLanguage;
+  tone: MarketingTone;
+  createdAt?: string;
+}
+

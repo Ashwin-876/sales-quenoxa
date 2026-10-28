@@ -9,6 +9,7 @@ import { ServiceRecommendationsView } from './views/ServiceRecommendationsView';
 import { ColdCallStudioView } from './views/ColdCallStudioView';
 import { WhatsAppOutreachView } from './views/WhatsAppOutreachView';
 import { ColdEmailStudioView } from './views/ColdEmailStudioView';
+import { ProfileMessageGeneratorView } from './views/ProfileMessageGeneratorView';
 import { CRMLeadsView } from './views/CRMLeadsView';
 import { SalesPipelineView } from './views/SalesPipelineView';
 import { FollowUpTasksView } from './views/FollowUpTasksView';
@@ -184,6 +185,10 @@ export const App: React.FC = () => {
                 setSelectedRecord(rec);
                 setCurrentView('cold-email-studio');
               }}
+              onSelectRecordForMarketingGenerator={(rec) => {
+                setSelectedRecord(rec);
+                setCurrentView('marketing-generator');
+              }}
             />
           )}
 
@@ -234,6 +239,13 @@ export const App: React.FC = () => {
               onSelectRecord={(rec) => setSelectedRecord(rec)}
               onNavigate={(v) => setCurrentView(v)}
               onRefreshRecords={fetchRecords}
+            />
+          )}
+
+          {currentView === 'marketing-generator' && (
+            <ProfileMessageGeneratorView
+              onNavigate={(v) => setCurrentView(v)}
+              selectedRecord={selectedRecord}
             />
           )}
 

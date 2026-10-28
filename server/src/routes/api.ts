@@ -10,6 +10,7 @@ import { DocumentParser } from '../services/documentParser.js';
 import { GeminiService } from '../services/geminiService.js';
 import { AnalyticsService } from '../services/analyticsService.js';
 import { ExportService } from '../services/exportService.js';
+import { MarketingGeneratorService, QUENOXA_SERVICE_CATALOGUE } from '../services/marketingGeneratorService.js';
 import {
   ServiceCatalogItem,
   ExtractedRecord,
@@ -2004,4 +2005,87 @@ apiRouter.post('/database/seed-sample-data', (req: Request, res: Response) => {
     message: 'Demonstration documents and records have been reloaded.'
   });
 });
+
+// ==============================================================================
+// 15. AI-POWERED CUSTOMER PROFILE-BASED MARKETING MESSAGE GENERATOR
+// ==============================================================================
+
+// 1. Get Quenoxa Service Catalogue
+apiRouter.get('/marketing-generator/services', (req: Request, res: Response) => {
+  return res.json(QUENOXA_SERVICE_CATALOGUE);
+});
+
+// 2. Get / Update Provider Settings (QUENOXA GLOBAL TECHNOLOGIES, Ashwin, 6369480281)
+apiRouter.get('/marketing-generator/provider-settings', (req: Request, res: Response) => {
+  const settings = MarketingGeneratorService.getProviderSettings();
+  return res.json(settings);
+});
+
+apiRouter.post('/marketing-generator/provider-settings', (req: Request, res: Response) => {
+  const updated = MarketingGeneratorService.saveProviderSettings(req.body);
+  logAudit('UPDATE_PROVIDER_SETTINGS', 'system', undefined, { updated });
+  return res.json(updated);
+});
+
+// 3. Generate 8 Tailored Outputs for Customer Profile
+apiRouter.post('/marketing-generator/generate', async (req: Request, res: Response) => {
+  try {
+    const profile = req.body.profile || req.body;
+    const provider = req.body.provider;
+    if (!profile || !profile.companyName) {
+      return res.status(400).json({ error: 'Customer company name is required.' });
+    }
+
+    const outputs = await MarketingGeneratorService.generateMarketingOutputs(profile, provider);
+    // Persist to history
+    MarketingGeneratorService.logGeneratedOutput(outputs);
+    logAudit('GENERATE_MARKETING_MESSAGES', 'marketing', undefined, {
+      customer: profile.customerName,
+      company: profile.companyName,
+      channel: profile.preferredChannel
+    });
+
+    return res.json(outputs);
+  } catch (err: any) {
+    console.error('Marketing generation failed:', err);
+    return res.status(500).json({ error: err?.message || 'Failed to generate marketing messages.' });
+  }
+});
+
+// 4. Saved Customer Profiles CRUD
+apiRouter.get('/marketing-generator/profiles', (req: Request, res: Response) => {
+  const profiles = MarketingGeneratorService.getProfiles();
+  return res.json(profiles);
+});
+
+apiRouter.post('/marketing-generator/profiles', (req: Request, res: Response) => {
+  try {
+    const profile = req.body;
+    if (!profile.companyName) {
+      return res.status(400).json({ error: 'Company name is required.' });
+    }
+    const saved = MarketingGeneratorService.saveProfile(profile);
+    logAudit('SAVE_MARKETING_PROFILE', 'marketing_profiles', saved.id, { companyName: saved.companyName });
+    return res.json(saved);
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Failed to save customer profile.' });
+  }
+});
+
+apiRouter.delete('/marketing-generator/profiles/:id', (req: Request, res: Response) => {
+  const profileId = Array.isArray(req.params.id) ? req.params.id[0] : (req.params.id as string);
+  const success = MarketingGeneratorService.deleteProfile(profileId);
+  if (success) {
+    logAudit('DELETE_MARKETING_PROFILE', 'marketing_profiles', profileId);
+    return res.json({ success: true });
+  }
+  return res.status(404).json({ error: 'Profile not found.' });
+});
+
+// 5. Message History Log
+apiRouter.get('/marketing-generator/history', (req: Request, res: Response) => {
+  const history = MarketingGeneratorService.getMessageHistory(30);
+  return res.json(history);
+});
+
 

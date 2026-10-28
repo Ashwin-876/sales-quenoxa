@@ -483,6 +483,50 @@ export function initDatabase() {
       );
       CREATE INDEX IF NOT EXISTS idx_rejected_leads_history_record ON rejected_leads_history(record_id);
       CREATE INDEX IF NOT EXISTS idx_rejected_leads_history_date ON rejected_leads_history(rejection_date);
+
+      -- MARKETING PROFILE GENERATOR TABLES
+      CREATE TABLE IF NOT EXISTS marketing_profiles (
+        id TEXT PRIMARY KEY,
+        customer_name TEXT NOT NULL,
+        company_name TEXT NOT NULL,
+        industry TEXT NOT NULL,
+        custom_industry TEXT,
+        designation TEXT,
+        location TEXT,
+        website TEXT,
+        requirements TEXT,
+        preferred_channel TEXT DEFAULT 'WhatsApp',
+        message_type TEXT DEFAULT 'Introduction',
+        language TEXT DEFAULT 'English',
+        tone TEXT DEFAULT 'Professional',
+        time_zone TEXT DEFAULT 'Asia/Kolkata',
+        greeting_override TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      );
+
+      CREATE TABLE IF NOT EXISTS generated_marketing_messages (
+        id TEXT PRIMARY KEY,
+        profile_id TEXT,
+        customer_name TEXT,
+        company_name TEXT,
+        industry TEXT,
+        recommended_services TEXT,
+        detected_greeting TEXT,
+        greeting_type TEXT,
+        introduction_message TEXT,
+        service_pitch_message TEXT,
+        brochure_sharing_message TEXT,
+        followup_message TEXT,
+        email_subject TEXT,
+        email_body TEXT,
+        whatsapp_short_message TEXT,
+        industry_service_list TEXT,
+        channel TEXT,
+        language TEXT,
+        tone TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
     `);
   } catch {}
 

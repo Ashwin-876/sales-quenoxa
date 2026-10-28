@@ -18,7 +18,10 @@ import {
   TeamMember,
   DashboardMetrics,
   SystemSettings,
-  IndustryCatalogueItem
+  IndustryCatalogueItem,
+  MarketingCustomerProfile,
+  ProviderSettings,
+  GeneratedMarketingOutputs
 } from '../../../shared/types.js';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL
@@ -328,4 +331,30 @@ export const api = {
 
   // Reset Account Data (Clean Slate / Brand-New Account)
   resetAccountData: () => fetchJson<{ success: boolean; message: string }>(`${API_BASE}/account/reset`, { method: 'POST' }),
+
+  // AI-Powered Marketing Message Generator
+  getMarketingServices: () => fetchJson<any[]>(`${API_BASE}/marketing-generator/services`),
+  getMarketingProviderSettings: () => fetchJson<ProviderSettings>(`${API_BASE}/marketing-generator/provider-settings`),
+  updateMarketingProviderSettings: (settings: Partial<ProviderSettings>) =>
+    fetchJson<ProviderSettings>(`${API_BASE}/marketing-generator/provider-settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings)
+    }),
+  generateMarketingMessages: (profile: MarketingCustomerProfile, provider?: Partial<ProviderSettings>) =>
+    fetchJson<GeneratedMarketingOutputs>(`${API_BASE}/marketing-generator/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile, provider })
+    }),
+  getMarketingProfiles: () => fetchJson<MarketingCustomerProfile[]>(`${API_BASE}/marketing-generator/profiles`),
+  saveMarketingProfile: (profile: MarketingCustomerProfile) =>
+    fetchJson<MarketingCustomerProfile>(`${API_BASE}/marketing-generator/profiles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profile)
+    }),
+  deleteMarketingProfile: (id: string) =>
+    fetchJson<{ success: boolean }>(`${API_BASE}/marketing-generator/profiles/${id}`, { method: 'DELETE' }),
+  getMarketingHistory: () => fetchJson<GeneratedMarketingOutputs[]>(`${API_BASE}/marketing-generator/history`),
 };
