@@ -62,6 +62,19 @@ function logAudit(action: string, entityType: string, entityId?: string, details
   }
 }
 
+function safeParseDigitalPresence(raw: string | null | undefined, website?: string, phone?: string): string[] {
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+      if (typeof parsed === 'string') return [parsed];
+    } catch {
+      return [raw];
+    }
+  }
+  return website ? ['Website', 'Google Maps'] : (phone ? ['WhatsApp Available', 'Direct Line'] : ['Needs verification']);
+}
+
 // ==============================================================================
 // 1. AUTH & TEAM ROUTES
 // ==============================================================================
@@ -248,7 +261,7 @@ apiRouter.delete('/files/:id', (req: Request, res: Response) => {
 // 3. EXTRACTED DATA EXPLORER ROUTES
 // ==============================================================================
 apiRouter.get('/records', (req: Request, res: Response) => {
-  const { fileId, search, status, duplicateOnly, missingOnly, callStatus, crmStatus, limit = 200, offset = 0 } = req.query;
+  const { fileId, search, status, duplicateOnly, missingOnly, callStatus, crmStatus, limit = 500, offset = 0 } = req.query;
 
   let query = 'SELECT * FROM extracted_records WHERE 1=1';
   const params: any[] = [];
@@ -299,9 +312,7 @@ apiRouter.get('/records', (req: Request, res: Response) => {
 
   const records: any[] = rows.map(r => {
     const website = r.website || (r.email && r.email.includes('@') ? `https://${r.email.split('@')[1]}` : undefined);
-    const digitalPresence = r.digital_presence
-      ? JSON.parse(r.digital_presence)
-      : (website ? ['Website', 'Google Maps'] : (r.phone ? ['WhatsApp Available', 'Direct Line'] : ['Needs verification']));
+    const digitalPresence = safeParseDigitalPresence(r.digital_presence, website, r.phone);
     const analysisStatus = r.status === 'analyzed' ? 'Analysed' : (r.analysis_status || 'New');
     const priority = r.priority || (r.email && r.phone ? 'High' : 'Medium');
 
@@ -387,9 +398,7 @@ apiRouter.get('/records/:id', (req: Request, res: Response) => {
   if (!r) return res.status(404).json({ error: 'Record not found' });
 
   const website = r.website || (r.email && r.email.includes('@') ? `https://${r.email.split('@')[1]}` : undefined);
-  const digitalPresence = r.digital_presence
-    ? JSON.parse(r.digital_presence)
-    : (website ? ['Website', 'Google Maps'] : (r.phone ? ['WhatsApp Available', 'Direct Line'] : ['Needs verification']));
+  const digitalPresence = safeParseDigitalPresence(r.digital_presence, website, r.phone);
   const analysisStatus = r.status === 'analyzed' ? 'Analysed' : (r.analysis_status || 'New');
   const priority = r.priority || (r.email && r.phone ? 'High' : 'Medium');
 
@@ -1373,9 +1382,7 @@ apiRouter.get('/leads', (req: Request, res: Response) => {
     const emailCount = (db.prepare('SELECT COUNT(*) as cnt FROM email_activity WHERE lead_id = ?').get(r.id) as { cnt: number }).cnt;
 
     const website = r.website || (r.email && r.email.includes('@') ? `https://${r.email.split('@')[1]}` : undefined);
-    const digitalPresence = r.digital_presence
-      ? JSON.parse(r.digital_presence)
-      : (website ? ['Website', 'Google Maps'] : (r.phone ? ['WhatsApp Available', 'Direct Call'] : ['Needs verification']));
+    const digitalPresence = safeParseDigitalPresence(r.digital_presence, website, r.phone);
     const analysisStatus = r.analysis_status || (r.recommended_service ? 'Analysed' : 'New');
     const priority = r.priority || (r.lead_status === 'Won' || r.lead_status === 'Interested' ? 'High' : 'Medium');
 

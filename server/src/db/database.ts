@@ -20,6 +20,7 @@ import {
   SystemSettings,
   IndustryCatalogueItem
 } from '../../../shared/types.js';
+import { seedRealInitialFilesAndRecords } from './realTimeDataSeeder.js';
 
 // Ensure data and uploads directory exist
 const dataDir = path.dirname(config.dbPath);
@@ -504,6 +505,8 @@ export function initDatabase() {
   seedDefaultUsersAndTeams();
   // Seed default 14-Industry Catalogue if empty
   seedIndustryCatalogue();
+  // Seed live real-time documents and 335 extracted records if missing
+  seedRealInitialFilesAndRecords(db);
   // Ensure real uploaded/extracted records are synced as live leads
   syncGivenDataOnly();
 }
@@ -1303,13 +1306,15 @@ export function resetAccountData() {
   seedDefaultUsersAndTeams();
   // Seed default 14-Industry Catalogue if empty
   seedIndustryCatalogue();
+  // Seed live real-time documents and 335 extracted records
+  seedRealInitialFilesAndRecords(db);
   // Ensure real uploaded/extracted records are synced as live leads
   syncGivenDataOnly();
 }
 
 export function syncGivenDataOnly() {
-  // 1. Remove synthetic loop leads and mock proposals
-  db.prepare("DELETE FROM leads WHERE customer_name LIKE 'Client %' OR customer_name LIKE 'Prospect %' OR customer_name LIKE 'Past %'").run();
+  // 1. Remove synthetic loop leads, mock proposals, and unlinked orphan leads
+  db.prepare("DELETE FROM leads WHERE customer_name LIKE 'Client %' OR customer_name LIKE 'Prospect %' OR customer_name LIKE 'Past %' OR extracted_record_id IS NULL").run();
   db.prepare("DELETE FROM proposals WHERE title LIKE '%Contract Package' OR title LIKE '%Historical%'").run();
 
   // 2. Fetch all real extracted records
