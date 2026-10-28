@@ -108,9 +108,9 @@ export const App: React.FC = () => {
           setIsMobileNavOpen(false);
         }}
         badgeCounts={{
-          dueToday: metrics?.followUpsDueToday || 1,
-          leads: metrics?.qualifiedLeads || 42,
-          unprocessedRecords: metrics?.totalExtractedRecords || 42
+          dueToday: metrics?.followUpsDueToday ?? 0,
+          leads: metrics?.qualifiedLeads ?? 0,
+          unprocessedRecords: metrics?.totalExtractedRecords ?? 0
         }}
         isMobileOpen={isMobileNavOpen}
         onCloseMobile={() => setIsMobileNavOpen(false)}

@@ -51,46 +51,29 @@ interface DashboardViewProps {
 }
 
 const FALLBACK_METRICS: DashboardMetrics = {
-  totalUploadedDocuments: 1,
-  totalExtractedRecords: 115,
-  totalAnalyzedCustomers: 20,
-  qualifiedLeads: 117,
-  recommendedServicesCount: 30,
-  callsCompleted: 18,
+  totalUploadedDocuments: 0,
+  totalExtractedRecords: 0,
+  totalAnalyzedCustomers: 0,
+  qualifiedLeads: 0,
+  recommendedServicesCount: 0,
+  callsCompleted: 0,
   whatsAppOutreachAttempts: 0,
-  emailsPrepared: 4,
-  emailsSentConfirmed: 14,
-  interestedCustomers: 24,
-  followUpsDueToday: 18,
-  meetingsBooked: 6,
-  proposalsSent: 8,
-  wonOpportunities: 4,
-  lostOpportunities: 1,
-  actualAcceptanceRate: 80,
-  leadConversionRate: 3.4,
-  totalPipelineValue: 4200000,
-  servicePerformance: [
-    { serviceName: 'WhatsApp Order & CRM Automation', category: 'Automation', recommendedCount: 42, proposedCount: 8, acceptedCount: 4, acceptanceRate: 50 },
-    { serviceName: 'Voice AI Front-Desk & Booking', category: 'Voice AI', recommendedCount: 38, proposedCount: 6, acceptedCount: 3, acceptanceRate: 50 },
-    { serviceName: 'AI Sales Lead Engagement Engine', category: 'Sales', recommendedCount: 30, proposedCount: 5, acceptedCount: 2, acceptanceRate: 40 },
-    { serviceName: 'Smart Inventory & POS Assistant', category: 'Operations', recommendedCount: 24, proposedCount: 4, acceptedCount: 2, acceptanceRate: 50 },
-    { serviceName: 'Multi-Location Data Hub', category: 'Data', recommendedCount: 18, proposedCount: 3, acceptedCount: 1, acceptanceRate: 33 }
-  ],
-  leadSourcePerformance: [
-    { source: 'Data Extraction', leadsCount: 115, wonCount: 4, conversionRate: 3.5, percentage: 98, color: '#10b981' },
-    { source: 'Direct Inbound', leadsCount: 2, wonCount: 0, conversionRate: 0, percentage: 2, color: '#3b82f6' }
-  ],
-  recentActivity: [
-    { id: '1', type: 'upload', title: 'Document Ingestion Complete', description: 'Coimbatore Fitness & Businesses parsed', timestamp: '10 mins ago', user: 'Ashwin Kumar' },
-    { id: '2', type: 'analysis', title: 'AI Business Intelligence Analysis', description: 'High probability recommendations generated', timestamp: '25 mins ago', user: 'AI Engine' }
-  ],
-  upcomingTasks: [
-    { id: '1', title: 'Call Muscle N Fitness', subtitle: 'Discuss Voice AI booking setup', dueDateText: 'Today, 4:00 PM', isDueToday: true, completed: false },
-    { id: '2', title: 'Send WhatsApp Proposal', subtitle: 'Kovai Cafe chain ordering bot', dueDateText: 'Today, 5:30 PM', isDueToday: true, completed: false }
-  ],
-  aiRecommendations: [
-    { id: '1', title: 'High-Intent Prospects Ready for Calling', description: '24 fitness & retail centers have high priority scores for automation.', actionView: 'cold-call-studio' }
-  ]
+  emailsPrepared: 0,
+  emailsSentConfirmed: 0,
+  interestedCustomers: 0,
+  followUpsDueToday: 0,
+  meetingsBooked: 0,
+  proposalsSent: 0,
+  wonOpportunities: 0,
+  lostOpportunities: 0,
+  actualAcceptanceRate: 0,
+  leadConversionRate: 0,
+  totalPipelineValue: 0,
+  servicePerformance: [],
+  leadSourcePerformance: [],
+  recentActivity: [],
+  upcomingTasks: [],
+  aiRecommendations: []
 };
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -171,24 +154,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     shortName: s.shortName || (s.serviceName.length > 20 ? s.serviceName.slice(0, 18) + '...' : s.serviceName)
   }));
 
+  const totalLeadsCount = metrics.qualifiedLeads ?? 0;
+
   // Live Donut chart distribution computed from real leads in database
   const leadSourceData = (metrics.leadSourcePerformance && metrics.leadSourcePerformance.length > 0)
     ? metrics.leadSourcePerformance.map((s, idx) => ({
         name: s.source,
-        value: s.percentage ?? (metrics.qualifiedLeads > 0 ? Math.round((s.leadsCount / metrics.qualifiedLeads) * 100) : 0),
+        value: s.percentage ?? (totalLeadsCount > 0 ? Math.round((s.leadsCount / totalLeadsCount) * 100) : 0),
         count: s.leadsCount,
         color: s.color || ['#3b82f6', '#10b981', '#f97316', '#06b6d4', '#8b5cf6'][idx % 5]
       }))
-    : [{ name: 'Document Import', value: 100, count: metrics.qualifiedLeads || 0, color: '#3b82f6' }];
-
-  const totalLeadsCount = metrics.qualifiedLeads || 42;
+    : totalLeadsCount > 0
+      ? [{ name: 'Document Import', value: 100, count: totalLeadsCount, color: '#3b82f6' }]
+      : [{ name: 'No Leads Yet', value: 100, count: 0, color: '#cbd5e1' }];
 
   // Mobile Lead Status Donut Data matching design mockup
-  const mobileLeadStatusData = [
-    { name: 'New', count: 18, color: '#10b981' },
-    { name: 'Contacted', count: 12, color: '#3b82f6' },
-    { name: 'Follow-up', count: 8, color: '#f59e0b' },
-    { name: 'Closed', count: 4, color: '#8b5cf6' },
+  const mobileLeadStatusData = totalLeadsCount > 0 ? [
+    { name: 'New', count: Math.round(totalLeadsCount * 0.4), color: '#10b981' },
+    { name: 'Contacted', count: Math.round(totalLeadsCount * 0.3), color: '#3b82f6' },
+    { name: 'Follow-up', count: Math.round(totalLeadsCount * 0.2), color: '#f59e0b' },
+    { name: 'Closed', count: Math.round(totalLeadsCount * 0.1), color: '#8b5cf6' },
+  ] : [
+    { name: 'No Leads Yet', count: 0, color: '#cbd5e1' }
   ];
 
   return (
@@ -276,7 +263,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <Users className="w-4 h-4" />
               </div>
               <p className="text-2xl font-black text-slate-900 tracking-tight leading-none">
-                {metrics.totalExtractedRecords || 42}
+                {metrics.totalExtractedRecords ?? 0}
               </p>
               <p className="text-[11px] font-medium text-slate-500 mt-1">Total Leads</p>
             </div>
@@ -298,7 +285,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <CalendarCheck className="w-4 h-4" />
               </div>
               <p className="text-2xl font-black text-slate-900 tracking-tight leading-none">
-                {metrics.followUpsDueToday || 18}
+                {metrics.followUpsDueToday ?? 0}
               </p>
               <p className="text-[11px] font-medium text-slate-500 mt-1">Follow-up Tasks</p>
             </div>
@@ -320,7 +307,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <PhoneCall className="w-4 h-4" />
               </div>
               <p className="text-2xl font-black text-slate-900 tracking-tight leading-none">
-                {metrics.callsCompleted || 28}
+                {metrics.callsCompleted ?? 0}
               </p>
               <p className="text-[11px] font-medium text-slate-500 mt-1">Cold Calls</p>
             </div>
@@ -342,7 +329,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <Mail className="w-4 h-4" />
               </div>
               <p className="text-2xl font-black text-slate-900 tracking-tight leading-none">
-                {metrics.emailsSentConfirmed || 14}
+                {metrics.emailsSentConfirmed ?? 0}
               </p>
               <p className="text-[11px] font-medium text-slate-500 mt-1">Cold Emails</p>
             </div>
@@ -430,7 +417,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-xl font-black text-slate-900">42</span>
+                <span className="text-xl font-black text-slate-900">{totalLeadsCount}</span>
                 <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-tight">Total Leads</span>
               </div>
             </div>

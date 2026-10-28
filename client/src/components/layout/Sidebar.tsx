@@ -84,7 +84,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Section 1: MAIN MENU
   const mainMenuItems: { key: ViewKey; label: string; icon: React.FC<any>; badge?: number }[] = [
     { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { key: 'upload-documents', label: 'Upload Documents', icon: UploadCloud, badge: badgeCounts?.unprocessedRecords || 42 },
+    { key: 'upload-documents', label: 'Upload Documents', icon: UploadCloud, badge: badgeCounts?.unprocessedRecords ?? 0 },
     { key: 'data-explorer', label: 'Data Explorer', icon: TableProperties },
     { key: 'ai-analysis', label: 'AI Analysis', icon: Sparkles },
     { key: 'service-recommendations', label: 'Service Recommendations', icon: Award },
@@ -99,8 +99,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Section 3: CRM & EXECUTION
   const crmItems: { key: ViewKey; label: string; icon: React.FC<any>; badge?: number }[] = [
-    { key: 'crm-leads', label: 'CRM & Leads', icon: Users2, badge: badgeCounts?.leads || 42 },
-    { key: 'follow-up-tasks', label: 'Follow-up Tasks', icon: CalendarCheck2, badge: badgeCounts?.dueToday || 1 },
+    { key: 'crm-leads', label: 'CRM & Leads', icon: Users2, badge: badgeCounts?.leads ?? 0 },
+    { key: 'follow-up-tasks', label: 'Follow-up Tasks', icon: CalendarCheck2, badge: badgeCounts?.dueToday ?? 0 },
     { key: 'sales-pipeline', label: 'Sales Pipeline', icon: KanbanSquare },
     { key: 'reports-analytics', label: 'Reports & Analytics', icon: BarChart3 },
   ];
