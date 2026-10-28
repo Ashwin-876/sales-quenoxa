@@ -4,7 +4,8 @@ import path from 'path';
 import fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { config } from '../config/environment.js';
-import { db, resetAccountData } from '../db/database.js';
+import { db, resetAccountData, syncGivenDataOnly } from '../db/database.js';
+import { seedRealInitialFilesAndRecords } from '../db/realTimeDataSeeder.js';
 import { DocumentParser } from '../services/documentParser.js';
 import { GeminiService } from '../services/geminiService.js';
 import { AnalyticsService } from '../services/analyticsService.js';
@@ -227,7 +228,16 @@ apiRouter.post('/files/upload', upload.array('files', 10), async (req: Request, 
 });
 
 apiRouter.get('/files', (req: Request, res: Response) => {
-  const files = db.prepare('SELECT * FROM uploaded_files ORDER BY created_at DESC').all() as any[];
+  let files = db.prepare('SELECT * FROM uploaded_files ORDER BY created_at DESC').all() as any[];
+  if (files.length === 0) {
+    try {
+      seedRealInitialFilesAndRecords(db);
+      syncGivenDataOnly();
+      files = db.prepare('SELECT * FROM uploaded_files ORDER BY created_at DESC').all() as any[];
+    } catch (e) {
+      console.error('Error auto-seeding files:', e);
+    }
+  }
   const formatted: UploadedFileRecord[] = files.map(f => ({
     id: f.id,
     fileName: f.file_name,
@@ -262,6 +272,16 @@ apiRouter.delete('/files/:id', (req: Request, res: Response) => {
 // ==============================================================================
 apiRouter.get('/records', (req: Request, res: Response) => {
   const { fileId, search, status, duplicateOnly, missingOnly, callStatus, crmStatus, limit = 500, offset = 0 } = req.query;
+
+  const currentCount = (db.prepare('SELECT COUNT(*) as cnt FROM extracted_records').get() as { cnt: number }).cnt;
+  if (currentCount === 0) {
+    try {
+      seedRealInitialFilesAndRecords(db);
+      syncGivenDataOnly();
+    } catch (e) {
+      console.error('Error auto-seeding records:', e);
+    }
+  }
 
   let query = 'SELECT * FROM extracted_records WHERE 1=1';
   const params: any[] = [];
