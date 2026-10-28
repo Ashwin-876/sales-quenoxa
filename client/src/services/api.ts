@@ -107,7 +107,20 @@ export const api = {
       { method: 'POST' }
     ),
   rejectRecord: (id: string, reason?: string) =>
-    fetchJson<{ success: boolean; message: string; crmStatus: string }>(
+    fetchJson<{
+      success: boolean;
+      message: string;
+      recordId: string;
+      crmStatus: string;
+      counts?: {
+        total: number;
+        pending: number;
+        rejected: number;
+        accepted: number;
+        inCrm: number;
+        callsPending: number;
+      };
+    }>(
       `${API_BASE}/records/${id}/reject`,
       {
         method: 'POST',
@@ -115,6 +128,40 @@ export const api = {
         body: JSON.stringify({ reason: reason || '' })
       }
     ),
+  restoreRecord: (id: string) =>
+    fetchJson<{
+      success: boolean;
+      message: string;
+      recordId: string;
+      counts?: {
+        total: number;
+        pending: number;
+        rejected: number;
+        accepted: number;
+      };
+    }>(
+      `${API_BASE}/records/${id}/restore`,
+      { method: 'POST' }
+    ),
+  getRejectedLeads: (search?: string) =>
+    fetchJson<{
+      items: Array<{
+        id: string;
+        record_id: string;
+        lead_id?: string;
+        customer_name: string;
+        company_name?: string;
+        phone?: string;
+        email?: string;
+        industry?: string;
+        location?: string;
+        website?: string;
+        rejection_reason: string;
+        rejection_date: string;
+        rejected_by: string;
+      }>;
+      totalCount: number;
+    }>(`${API_BASE}/rejected-leads${search ? `?search=${encodeURIComponent(search)}` : ''}`),
   addRecordToCrm: (id: string, data?: { pipelineStage?: string; pipelineValue?: number; recommendedService?: string }) =>
     fetchJson<{ success: boolean; leadId: string }>(`${API_BASE}/records/${id}/to-crm`, {
       method: 'POST',

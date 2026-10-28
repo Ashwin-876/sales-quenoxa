@@ -460,6 +460,31 @@ export function initDatabase() {
   try { db.exec("ALTER TABLE extracted_records ADD COLUMN rejected_at TEXT;"); } catch {}
   try { db.exec("CREATE INDEX IF NOT EXISTS idx_extracted_records_crm_status ON extracted_records(crm_status);"); } catch {}
 
+  // 24. REJECTED_LEADS_HISTORY (Audit-compliant customer rejection storage)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS rejected_leads_history (
+        id TEXT PRIMARY KEY,
+        record_id TEXT NOT NULL,
+        lead_id TEXT,
+        customer_name TEXT NOT NULL,
+        company_name TEXT,
+        phone TEXT,
+        email TEXT,
+        industry TEXT,
+        location TEXT,
+        website TEXT,
+        rejection_reason TEXT NOT NULL,
+        rejection_date TEXT DEFAULT (datetime('now')),
+        rejected_by TEXT DEFAULT 'Ashwin Kumar',
+        raw_details TEXT,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_rejected_leads_history_record ON rejected_leads_history(record_id);
+      CREATE INDEX IF NOT EXISTS idx_rejected_leads_history_date ON rejected_leads_history(rejection_date);
+    `);
+  } catch {}
+
   try { db.exec("ALTER TABLE customer_analyses ADD COLUMN digital_presence TEXT;"); } catch {}
   try { db.exec("ALTER TABLE customer_analyses ADD COLUMN business_problems TEXT;"); } catch {}
   try { db.exec("ALTER TABLE customer_analyses ADD COLUMN recommended_services TEXT;"); } catch {}

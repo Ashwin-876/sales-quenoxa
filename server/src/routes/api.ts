@@ -268,19 +268,24 @@ apiRouter.get('/records', (req: Request, res: Response) => {
     query += ' AND has_missing_values = 1';
   }
   if (callStatus === 'completed') {
-    query += ' AND call_completed = 1';
+    query += " AND call_completed = 1 AND (crm_status != 'rejected' OR crm_status IS NULL)";
   } else if (callStatus === 'pending') {
-    query += ' AND (call_completed = 0 OR call_completed IS NULL)';
+    query += " AND (call_completed = 0 OR call_completed IS NULL) AND (crm_status != 'rejected' OR crm_status IS NULL)";
   }
+
   if (crmStatus === 'pending') {
-    query += " AND (crm_status = 'pending' OR crm_status IS NULL OR crm_status = 'raw')";
+    query += " AND (crm_status = 'pending' OR crm_status IS NULL OR crm_status = 'raw') AND (crm_status != 'rejected' OR crm_status IS NULL)";
   } else if (crmStatus === 'accepted') {
     query += " AND crm_status = 'accepted'";
   } else if (crmStatus === 'rejected') {
     query += " AND crm_status = 'rejected'";
   } else if (crmStatus === 'in_crm') {
-    query += " AND (crm_status = 'in_crm' OR status = 'in_crm')";
+    query += " AND (crm_status = 'in_crm' OR status = 'in_crm') AND (crm_status != 'rejected' OR crm_status IS NULL)";
+  } else if (crmStatus !== 'all_inclusive') {
+    // By default, active leads automatically exclude rejected customers
+    query += " AND (crm_status != 'rejected' OR crm_status IS NULL)";
   }
+
   if (search) {
     query += ' AND (customer_name LIKE ? OR company_name LIKE ? OR email LIKE ? OR phone LIKE ? OR industry LIKE ?)';
     const s = `%${search}%`;
@@ -355,21 +360,22 @@ apiRouter.get('/records', (req: Request, res: Response) => {
     };
   });
 
-  const totalCount = (db.prepare('SELECT COUNT(*) as cnt FROM extracted_records').get() as { cnt: number }).cnt;
-  const callsCompletedCount = (db.prepare('SELECT COUNT(*) as cnt FROM extracted_records WHERE call_completed = 1').get() as { cnt: number }).cnt;
-  const callsPendingCount = totalCount - callsCompletedCount;
+  // Calculate active leads count (excluding rejected customers)
+  const activeCount = (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE (crm_status != 'rejected' OR crm_status IS NULL)").get() as { cnt: number }).cnt;
+  const callsCompletedCount = (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE call_completed = 1 AND (crm_status != 'rejected' OR crm_status IS NULL)").get() as { cnt: number }).cnt;
+  const callsPendingCount = (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE (call_completed = 0 OR call_completed IS NULL) AND (crm_status != 'rejected' OR crm_status IS NULL)").get() as { cnt: number }).cnt;
 
   const crmCounts = {
-    total: totalCount,
-    pending: (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE crm_status = 'pending' OR crm_status IS NULL OR crm_status = 'raw'").get() as any).cnt,
+    total: activeCount,
+    pending: (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE (crm_status = 'pending' OR crm_status IS NULL OR crm_status = 'raw') AND (crm_status != 'rejected' OR crm_status IS NULL)").get() as any).cnt,
     accepted: (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE crm_status = 'accepted'").get() as any).cnt,
     rejected: (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE crm_status = 'rejected'").get() as any).cnt,
-    inCrm: (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE crm_status = 'in_crm' OR status = 'in_crm'").get() as any).cnt,
+    inCrm: (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE (crm_status = 'in_crm' OR status = 'in_crm') AND (crm_status != 'rejected' OR crm_status IS NULL)").get() as any).cnt,
   };
 
   return res.json({
     records,
-    totalCount,
+    totalCount: activeCount,
     callsCompletedCount,
     callsPendingCount,
     crmCounts
@@ -577,7 +583,7 @@ apiRouter.post('/records/:id/accept', (req: Request, res: Response) => {
   });
 });
 
-// Reject Lead
+// Reject Customer Lead (with reliable database transaction & rejected_leads_history)
 apiRouter.post('/records/:id/reject', (req: Request, res: Response) => {
   const { id } = req.params;
   const { reason = '' } = req.body;
@@ -587,39 +593,188 @@ apiRouter.post('/records/:id/reject', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'Customer lead record not found' });
   }
 
-  // Update extracted record
-  db.prepare(`
-    UPDATE extracted_records
-    SET crm_status = 'rejected',
-        rejection_reason = ?,
-        rejected_at = datetime('now'),
-        updated_at = datetime('now')
-    WHERE id = ?
-  `).run(reason || null, id);
+  // Prevent duplicate rejection actions
+  if (rec.crm_status === 'rejected') {
+    return res.status(400).json({ error: 'Customer has already been rejected.' });
+  }
 
-  // If a lead was already in CRM, update it to Lost / Rejected
+  const rejectionReason = (reason && String(reason).trim()) ? String(reason).trim() : 'Not qualified / Not interested';
+  const historyId = `rej_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
   try {
-    db.prepare(`
-      UPDATE leads
-      SET lead_status = 'Lost',
-          outcome = 'Rejected',
-          rejection_reason = ?,
-          updated_at = datetime('now')
-      WHERE extracted_record_id = ?
-    `).run(reason || null, id);
-  } catch {}
+    const rejectTransaction = db.transaction(() => {
+      // 1. Update extracted_records status
+      db.prepare(`
+        UPDATE extracted_records
+        SET crm_status = 'rejected',
+            rejection_reason = ?,
+            rejected_at = datetime('now'),
+            updated_at = datetime('now')
+        WHERE id = ?
+      `).run(rejectionReason, id);
 
-  logAudit('REJECT_LEAD', 'extracted_records', String(id), {
-    customerName: rec.customer_name,
-    company: rec.company_name,
-    reason
-  });
+      // 2. If lead already exists in CRM leads table, update its outcome to Rejected / Lost
+      const existingLead = db.prepare('SELECT id FROM leads WHERE extracted_record_id = ?').get(id) as any;
+      if (existingLead) {
+        db.prepare(`
+          UPDATE leads
+          SET lead_status = 'Lost',
+              outcome = 'Rejected',
+              rejection_reason = ?,
+              updated_at = datetime('now')
+          WHERE id = ?
+        `).run(rejectionReason, existingLead.id);
+      }
+
+      // 3. Save full customer details into rejected_leads_history
+      db.prepare(`
+        INSERT INTO rejected_leads_history (
+          id, record_id, lead_id, customer_name, company_name, phone, email,
+          industry, location, website, rejection_reason, rejection_date,
+          rejected_by, raw_details
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)
+      `).run(
+        historyId,
+        String(id),
+        existingLead?.id || null,
+        rec.customer_name || 'Unnamed Customer',
+        rec.company_name || 'Unnamed Company',
+        rec.phone || null,
+        rec.email || null,
+        rec.industry || null,
+        rec.location || null,
+        rec.website || null,
+        rejectionReason,
+        'Ashwin Kumar',
+        JSON.stringify({
+          priority: rec.priority,
+          digitalPresence: rec.digital_presence,
+          fileId: rec.file_id
+        })
+      );
+
+      // 4. Record audit log
+      logAudit('REJECT_CUSTOMER_LEAD', 'extracted_records', String(id), {
+        customerName: rec.customer_name,
+        company: rec.company_name,
+        reason: rejectionReason,
+        historyId
+      });
+    });
+
+    rejectTransaction();
+
+    // Query refreshed counts for instant UI reconciliation
+    const totalActive = (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE (crm_status != 'rejected' OR crm_status IS NULL)").get() as any).cnt;
+    const pendingCount = (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE (crm_status = 'pending' OR crm_status IS NULL OR crm_status = 'raw') AND (crm_status != 'rejected' OR crm_status IS NULL)").get() as any).cnt;
+    const rejectedCount = (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE crm_status = 'rejected'").get() as any).cnt;
+    const acceptedCount = (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE crm_status = 'accepted'").get() as any).cnt;
+    const inCrmCount = (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE (crm_status = 'in_crm' OR status = 'in_crm') AND (crm_status != 'rejected' OR crm_status IS NULL)").get() as any).cnt;
+    const callsPending = (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE (call_completed = 0 OR call_completed IS NULL) AND (crm_status != 'rejected' OR crm_status IS NULL)").get() as any).cnt;
+
+    return res.json({
+      success: true,
+      message: 'Customer rejected successfully.',
+      recordId: id,
+      crmStatus: 'rejected',
+      counts: {
+        total: totalActive,
+        pending: pendingCount,
+        rejected: rejectedCount,
+        accepted: acceptedCount,
+        inCrm: inCrmCount,
+        callsPending
+      }
+    });
+  } catch (err: any) {
+    console.error('Customer rejection transaction failed:', err);
+    return res.status(500).json({
+      error: `Failed to reject customer due to database transaction failure: ${err?.message || 'Internal error'}`
+    });
+  }
+});
+
+// GET /rejected-leads: Full history of rejected leads accessible to authorized users
+apiRouter.get('/rejected-leads', (req: Request, res: Response) => {
+  const { search, limit = 100, offset = 0 } = req.query;
+
+  let query = 'SELECT * FROM rejected_leads_history WHERE 1=1';
+  const params: any[] = [];
+
+  if (search) {
+    query += ' AND (customer_name LIKE ? OR company_name LIKE ? OR phone LIKE ? OR email LIKE ? OR rejection_reason LIKE ?)';
+    const s = `%${search}%`;
+    params.push(s, s, s, s, s);
+  }
+
+  query += ' ORDER BY rejection_date DESC LIMIT ? OFFSET ?';
+  params.push(Number(limit), Number(offset));
+
+  const items = db.prepare(query).all(...params) as any[];
+  const totalCount = (db.prepare('SELECT COUNT(*) as cnt FROM rejected_leads_history').get() as any).cnt;
 
   return res.json({
-    success: true,
-    message: 'Lead rejected successfully.',
-    crmStatus: 'rejected'
+    items,
+    totalCount
   });
+});
+
+// POST /records/:id/restore: Restore a rejected customer back to active/pending leads
+apiRouter.post('/records/:id/restore', (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const rec = db.prepare('SELECT * FROM extracted_records WHERE id = ?').get(id) as any;
+  if (!rec) {
+    return res.status(404).json({ error: 'Customer record not found' });
+  }
+
+  try {
+    const restoreTx = db.transaction(() => {
+      db.prepare(`
+        UPDATE extracted_records
+        SET crm_status = 'pending',
+            rejection_reason = NULL,
+            rejected_at = NULL,
+            updated_at = datetime('now')
+        WHERE id = ?
+      `).run(id);
+
+      db.prepare(`
+        UPDATE leads
+        SET lead_status = 'New Lead',
+            outcome = 'Pending',
+            rejection_reason = NULL,
+            updated_at = datetime('now')
+        WHERE extracted_record_id = ?
+      `).run(id);
+
+      logAudit('RESTORE_CUSTOMER_LEAD', 'extracted_records', String(id), {
+        customerName: rec.customer_name,
+        company: rec.company_name
+      });
+    });
+
+    restoreTx();
+
+    const totalActive = (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE (crm_status != 'rejected' OR crm_status IS NULL)").get() as any).cnt;
+    const pendingCount = (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE (crm_status = 'pending' OR crm_status IS NULL OR crm_status = 'raw') AND (crm_status != 'rejected' OR crm_status IS NULL)").get() as any).cnt;
+    const rejectedCount = (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE crm_status = 'rejected'").get() as any).cnt;
+    const acceptedCount = (db.prepare("SELECT COUNT(*) as cnt FROM extracted_records WHERE crm_status = 'accepted'").get() as any).cnt;
+
+    return res.json({
+      success: true,
+      message: 'Customer restored to active leads successfully.',
+      recordId: id,
+      counts: {
+        total: totalActive,
+        pending: pendingCount,
+        rejected: rejectedCount,
+        accepted: acceptedCount
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Failed to restore customer' });
+  }
 });
 
 // ==============================================================================

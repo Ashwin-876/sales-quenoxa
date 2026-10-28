@@ -82,6 +82,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
   const [savingCallIds, setSavingCallIds] = useState<Set<string>>(new Set());
   const [acceptingIds, setAcceptingIds] = useState<Set<string>>(new Set());
   const [rejectModalRecord, setRejectModalRecord] = useState<ExtractedRecord | null>(null);
+  const [selectedReasonCategory, setSelectedReasonCategory] = useState<string>('Not interested / No current requirement');
   const [rejectionReasonInput, setRejectionReasonInput] = useState('');
   const [isSubmittingReject, setIsSubmittingReject] = useState(false);
 
@@ -241,6 +242,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
   // Reject Lead Modal Handlers
   const handleOpenRejectModal = (record: ExtractedRecord) => {
     setRejectModalRecord(record);
+    setSelectedReasonCategory('Not interested / No current requirement');
     setRejectionReasonInput('');
   };
 
@@ -249,36 +251,79 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
     setIsSubmittingReject(true);
     setActionErrorMsg(null);
     const targetId = rejectModalRecord.id;
-    const reason = rejectionReasonInput.trim() || undefined;
+    const finalReason = selectedReasonCategory === 'Other'
+      ? (rejectionReasonInput.trim() || 'Other reason')
+      : (rejectionReasonInput.trim() ? `${selectedReasonCategory}: ${rejectionReasonInput.trim()}` : selectedReasonCategory);
 
     try {
-      await api.rejectRecord(targetId, reason);
-      setActionSuccessMsg('Lead rejected successfully.');
-      setTimeout(() => setActionSuccessMsg(null), 5000);
+      const res = await api.rejectRecord(targetId, finalReason);
 
-      // Optimistic local update
-      setRecords(prev =>
-        prev.map(r =>
-          r.id === targetId
-            ? {
-                ...r,
-                crmStatus: 'rejected',
-                rejectionReason: reason,
-                rejectedAt: new Date().toISOString()
-              }
-            : r
-        )
-      );
+      // Requirement: Immediately remove the customer from the active lead list without requiring a page refresh
+      if (crmStatusFilter !== 'rejected') {
+        setRecords(prev => prev.filter(r => r.id !== targetId));
+      } else {
+        setRecords(prev =>
+          prev.map(r =>
+            r.id === targetId
+              ? {
+                  ...r,
+                  crmStatus: 'rejected',
+                  rejectionReason: finalReason,
+                  rejectedAt: new Date().toISOString()
+                }
+              : r
+          )
+        );
+      }
+
+      // Requirement: Update the total lead count, pending count, and rejected count automatically
+      if (res.counts) {
+        setTotalCount(res.counts.total);
+        setPendingCount(res.counts.callsPending);
+        setCrmCounts({
+          total: res.counts.total,
+          pending: res.counts.pending,
+          accepted: res.counts.accepted,
+          rejected: res.counts.rejected,
+          inCrm: res.counts.inCrm
+        });
+      } else {
+        setTotalCount(prev => Math.max(0, prev - 1));
+        setPendingCount(prev => Math.max(0, prev - 1));
+        setCrmCounts(prev => ({
+          ...prev,
+          total: Math.max(0, prev.total - 1),
+          pending: Math.max(0, prev.pending - 1),
+          rejected: prev.rejected + 1
+        }));
+      }
+
+      // Requirement: Show a success message: "Customer rejected successfully."
+      setActionSuccessMsg('Customer rejected successfully.');
+      setTimeout(() => setActionSuccessMsg(null), 4000);
 
       setRejectModalRecord(null);
       setRejectionReasonInput('');
-      loadRecords();
     } catch (err: any) {
-      console.error('Failed to reject lead:', err);
-      setActionErrorMsg(`Failed to reject lead: ${err?.message || 'Server error'}`);
+      console.error('Failed to reject customer lead:', err);
+      // Requirement: If the operation fails, display an error message and keep the customer in the active list.
+      setActionErrorMsg(`Failed to reject customer: ${err?.message || 'Server error'}. Customer remains in active list.`);
       setTimeout(() => setActionErrorMsg(null), 6000);
+      setRejectModalRecord(null);
     } finally {
       setIsSubmittingReject(false);
+    }
+  };
+
+  const handleRestoreLead = async (record: ExtractedRecord) => {
+    try {
+      const res = await api.restoreRecord(record.id);
+      setActionSuccessMsg(res.message || 'Customer restored to active leads successfully.');
+      setTimeout(() => setActionSuccessMsg(null), 4000);
+      loadRecords();
+    } catch (err: any) {
+      setActionErrorMsg(`Failed to restore customer: ${err?.message || 'Server error'}`);
+      setTimeout(() => setActionErrorMsg(null), 5000);
     }
   };
 
@@ -892,15 +937,24 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                             </button>
                           )}
 
-                          {/* 3. Reject Lead Button */}
+                          {/* 3. Reject / Rejected / Restore Button */}
                           {isRejected ? (
-                            <span
-                              className="px-2.5 py-1.5 bg-[#FFE4E6] text-[#BE123C] border border-[#FECDD3] rounded-lg text-xs font-semibold flex items-center space-x-1 cursor-default"
-                              title={r.rejectionReason ? `Rejected: ${r.rejectionReason}` : 'Lead rejected'}
-                            >
-                              <XCircle className="w-3.5 h-3.5 text-[#E11D48]" />
-                              <span>Rejected</span>
-                            </span>
+                            <div className="inline-flex items-center space-x-1.5">
+                              <span
+                                className="px-2.5 py-1.5 bg-[#FFE4E6] text-[#BE123C] border border-[#FECDD3] rounded-lg text-xs font-semibold flex items-center space-x-1 cursor-default"
+                                title={r.rejectionReason ? `Reason: ${r.rejectionReason}` : 'Customer rejected'}
+                              >
+                                <XCircle className="w-3.5 h-3.5 text-[#E11D48]" />
+                                <span>Rejected</span>
+                              </span>
+                              <button
+                                onClick={() => handleRestoreLead(r)}
+                                className="px-2 py-1 bg-white hover:bg-slate-50 text-slate-700 hover:text-emerald-700 border border-slate-200 hover:border-emerald-300 rounded-lg text-[11px] font-semibold transition-colors shadow-2xs cursor-pointer"
+                                title="Restore customer back to active leads"
+                              >
+                                Restore
+                              </button>
+                            </div>
                           ) : isAlreadyInCrm ? (
                             <button
                               disabled
@@ -913,8 +967,9 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                           ) : (
                             <button
                               onClick={() => handleOpenRejectModal(r)}
-                              className="px-2.5 py-1.5 bg-white hover:bg-rose-50 text-[#E11D48] border border-[#FECDD3] hover:border-rose-400 rounded-lg text-xs font-semibold flex items-center space-x-1 transition-all shadow-2xs active:scale-95"
-                              title="Reject this lead."
+                              disabled={isSubmittingReject && rejectModalRecord?.id === r.id}
+                              className="px-2.5 py-1.5 bg-white hover:bg-rose-50 text-[#E11D48] border border-[#FECDD3] hover:border-rose-400 rounded-lg text-xs font-semibold flex items-center space-x-1 transition-all shadow-2xs active:scale-95 disabled:opacity-50 cursor-pointer"
+                              title="Reject this customer lead."
                             >
                               <XCircle className="w-3.5 h-3.5 text-[#E11D48]" />
                               <span>Reject</span>
@@ -1038,7 +1093,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
       {/* Reject Confirmation Dialog Modal */}
       {rejectModalRecord && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 animate-in zoom-in-95 duration-150">
             <div className="flex items-start justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center space-x-3">
                 <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
@@ -1046,7 +1101,7 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-900">
-                    Are you sure you want to reject this lead?
+                    Confirm Customer Rejection
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
                     {rejectModalRecord.companyName || rejectModalRecord.customerName}
@@ -1057,38 +1112,84 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                 onClick={() => {
                   if (!isSubmittingReject) setRejectModalRecord(null);
                 }}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                disabled={isSubmittingReject}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="mt-4 space-y-3">
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Rejecting this lead marks it as <span className="font-semibold text-rose-600">Rejected</span> and prevents it from being transferred into the CRM module. This action will be saved in the database.
-              </p>
+            <div className="mt-4 space-y-3.5">
+              <div className="p-3 bg-rose-50/60 border border-rose-200/70 rounded-xl text-xs text-rose-800 leading-relaxed">
+                <p className="font-semibold mb-0.5">Immediate Removal Notice:</p>
+                <p className="text-[11px] text-rose-700">
+                  This customer will be <strong>immediately removed</strong> from your active lead list and pending call workflows. Their details, rejection timestamp, and reason will be archived in the <strong>Rejected Leads History</strong>.
+                </p>
+              </div>
 
+              {/* Customer details mini summary */}
+              <div className="grid grid-cols-2 gap-2 p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-medium block">Contact</span>
+                  <span className="font-semibold text-slate-800 block truncate">{rejectModalRecord.customerName}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-medium block">Phone</span>
+                  <span className="font-mono text-slate-700 block truncate">{rejectModalRecord.phone || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-medium block">Industry</span>
+                  <span className="text-slate-700 block truncate">{rejectModalRecord.industry || 'General Business'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-medium block">Location</span>
+                  <span className="text-slate-700 block truncate">{rejectModalRecord.location || 'Local'}</span>
+                </div>
+              </div>
+
+              {/* Rejection Reason Category */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Rejection Reason (Optional)
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Primary Rejection Reason:
+                </label>
+                <select
+                  value={selectedReasonCategory}
+                  onChange={(e) => setSelectedReasonCategory(e.target.value)}
+                  disabled={isSubmittingReject}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 cursor-pointer"
+                >
+                  <option value="Not interested / No current requirement">Not interested / No current requirement</option>
+                  <option value="Budget or pricing mismatch">Budget or pricing mismatch</option>
+                  <option value="Already working with another provider">Already working with another provider</option>
+                  <option value="Invalid or unreachable contact details">Invalid or unreachable contact details</option>
+                  <option value="Outside target service territory">Outside target service territory</option>
+                  <option value="Timing mismatch / Revisit next quarter">Timing mismatch / Revisit next quarter</option>
+                  <option value="Other">Other reason</option>
+                </select>
+              </div>
+
+              {/* Detailed Reason Notes */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Additional Notes (Optional):
                 </label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={rejectionReasonInput}
                   onChange={(e) => setRejectionReasonInput(e.target.value)}
-                  placeholder="e.g., Budget mismatch, out of target geography, no requirement at this time..."
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-rose-500 bg-slate-50/50"
+                  placeholder="Record specific customer feedback or objection details..."
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 bg-slate-50/50"
                   disabled={isSubmittingReject}
                 />
               </div>
             </div>
 
-            <div className="mt-6 flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+            <div className="mt-5 flex items-center justify-end space-x-2.5 pt-3 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setRejectModalRecord(null)}
                 disabled={isSubmittingReject}
-                className="px-4 py-2 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -1096,10 +1197,10 @@ export const DataExplorerView: React.FC<DataExplorerViewProps> = ({
                 type="button"
                 onClick={handleConfirmReject}
                 disabled={isSubmittingReject}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5 shadow-2xs transition-colors disabled:opacity-50"
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 active:scale-98 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-xs transition-all disabled:opacity-50 cursor-pointer"
               >
                 {isSubmittingReject && <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />}
-                <span>Confirm Rejection</span>
+                <span>{isSubmittingReject ? 'Rejecting...' : 'Confirm Rejection'}</span>
               </button>
             </div>
           </div>
