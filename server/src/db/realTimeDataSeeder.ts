@@ -112,8 +112,18 @@ export const INITIAL_REGISTRY_FILES: InitialFileInfo[] = [
   }
 ];
 
-export function seedRealInitialFilesAndRecords(db: Database.Database) {
+export function seedRealInitialFilesAndRecords(db: Database.Database, force: boolean = false) {
   try {
+    if (!force) {
+      try {
+        const userReset = db.prepare("SELECT value FROM system_settings WHERE key = 'account_cleared_by_user'").get() as { value: string } | undefined;
+        if (userReset?.value === '1') {
+          // User explicitly requested a clean empty account; do not auto-repopulate
+          return;
+        }
+      } catch {}
+    }
+
     const existingCount = (db.prepare('SELECT COUNT(*) as cnt FROM uploaded_files').get() as { cnt: number }).cnt;
     const existingRecCount = (db.prepare('SELECT COUNT(*) as cnt FROM extracted_records').get() as { cnt: number }).cnt;
 

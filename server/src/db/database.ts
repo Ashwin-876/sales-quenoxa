@@ -1285,6 +1285,10 @@ export function resetAccountData() {
     db.prepare('DELETE FROM source_documents').run();
     db.prepare('DELETE FROM uploaded_files').run();
     db.prepare('DELETE FROM audit_logs').run();
+    try { db.prepare('DELETE FROM rejected_leads_history').run(); } catch {}
+    try {
+      db.prepare("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('account_cleared_by_user', '1')").run();
+    } catch {}
   })();
 
   // Also clean physical uploaded files in uploads directory
@@ -1301,15 +1305,11 @@ export function resetAccountData() {
     console.warn('Error clearing uploads directory:', err);
   }
 
-  // Ensure default services, team, and industry catalogue exist
+  // Ensure core system catalogs, team, and services remain available in pristine state
   seedDefaultServices();
   seedDefaultUsersAndTeams();
-  // Seed default 14-Industry Catalogue if empty
   seedIndustryCatalogue();
-  // Seed live real-time documents and 335 extracted records
-  seedRealInitialFilesAndRecords(db);
-  // Ensure real uploaded/extracted records are synced as live leads
-  syncGivenDataOnly();
+  // NOTE: Customer files, leads, and outreach records are now 100% CLEARED (0 documents, 0 records, 0 leads).
 }
 
 export function syncGivenDataOnly() {

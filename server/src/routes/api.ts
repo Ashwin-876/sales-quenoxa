@@ -228,16 +228,7 @@ apiRouter.post('/files/upload', upload.array('files', 10), async (req: Request, 
 });
 
 apiRouter.get('/files', (req: Request, res: Response) => {
-  let files = db.prepare('SELECT * FROM uploaded_files ORDER BY created_at DESC').all() as any[];
-  if (files.length === 0) {
-    try {
-      seedRealInitialFilesAndRecords(db);
-      syncGivenDataOnly();
-      files = db.prepare('SELECT * FROM uploaded_files ORDER BY created_at DESC').all() as any[];
-    } catch (e) {
-      console.error('Error auto-seeding files:', e);
-    }
-  }
+  const files = db.prepare('SELECT * FROM uploaded_files ORDER BY created_at DESC').all() as any[];
   const formatted: UploadedFileRecord[] = files.map(f => ({
     id: f.id,
     fileName: f.file_name,
@@ -272,16 +263,6 @@ apiRouter.delete('/files/:id', (req: Request, res: Response) => {
 // ==============================================================================
 apiRouter.get('/records', (req: Request, res: Response) => {
   const { fileId, search, status, duplicateOnly, missingOnly, callStatus, crmStatus, limit = 500, offset = 0 } = req.query;
-
-  const currentCount = (db.prepare('SELECT COUNT(*) as cnt FROM extracted_records').get() as { cnt: number }).cnt;
-  if (currentCount === 0) {
-    try {
-      seedRealInitialFilesAndRecords(db);
-      syncGivenDataOnly();
-    } catch (e) {
-      console.error('Error auto-seeding records:', e);
-    }
-  }
 
   let query = 'SELECT * FROM extracted_records WHERE 1=1';
   const params: any[] = [];
@@ -1982,176 +1963,13 @@ apiRouter.post('/settings', (req: Request, res: Response) => {
 // 13. SEED SAMPLE REAL DATASET FOR IMMEDIATE WORKFLOW TESTING
 // ==============================================================================
 apiRouter.post('/seed-sample', (req: Request, res: Response) => {
-  const sampleCompanies = [
-    {
-      name: 'Ramesh Sundaram',
-      company: 'Apex Logistics & Freight India',
-      email: 'ramesh.s@apexlogistics.in',
-      phone: '+919840123456',
-      industry: 'Logistics and Supply Chain',
-      location: 'Chennai, Tamil Nadu',
-      raw: { employees: '180', fleetSize: '65 trucks', currentIssue: 'Tracking consignments via manual excel sheets and phone calls' },
-      stage: 'Contacted',
-      val: 280000,
-      service: 'Enterprise Web Application Development'
-    },
-    {
-      name: 'Dr. Kavitha Mohan',
-      company: 'CareFirst Multi-Speciality Clinics',
-      email: 'kavitha.m@carefirstclinics.org',
-      phone: '+919884567890',
-      industry: 'Healthcare Services',
-      location: 'Coimbatore, Tamil Nadu',
-      raw: { locations: '4 clinics', currentIssue: 'Patients waiting long times for WhatsApp appointment confirmation and billing records' },
-      stage: 'Meeting Scheduled',
-      val: 185000,
-      service: 'Automated Business Workflows & RPA'
-    },
-    {
-      name: 'Venkatesh Babu',
-      company: 'Sri Krishna Textiles & Garments Export',
-      email: 'v.babu@srikrishnatex.com',
-      phone: '+919443123890',
-      industry: 'Textiles & Apparel Manufacturing',
-      location: 'Tirupur, Tamil Nadu',
-      raw: { exportMarkets: 'UK, Germany, UAE', currentIssue: 'Outdated static HTML website from 2018 with zero international inbound inquiries' },
-      stage: 'Proposal Sent',
-      val: 120000,
-      service: 'Modern Website Design & Lead Engine'
-    },
-    {
-      name: 'Arjun Swaminathan',
-      company: 'Zenith FinServe Capital',
-      email: 'arjun@zenithfinserve.co.in',
-      phone: '+919820543210',
-      industry: 'Financial Services & Wealth Management',
-      location: 'Bangalore, Karnataka',
-      raw: { aum: '₹350 Cr', currentIssue: 'High document loan processing manual verification backlog taking 5 days per client' },
-      stage: 'Negotiation',
-      val: 450000,
-      service: 'Custom AI & Machine Learning Solutions'
-    },
-    {
-      name: 'Meenakshi Sundaram',
-      company: 'Kaveri Agro Tech & Food Processing',
-      email: 'meenakshi@kaveriagro.com',
-      phone: '+919789012345',
-      industry: 'Agriculture & Food Processing',
-      location: 'Madurai, Tamil Nadu',
-      raw: { retailStores: '32 stores', currentIssue: 'No centralized dashboard; store managers WhatsApp end-of-day sales daily' },
-      stage: 'Won',
-      val: 220000,
-      service: 'Executive Dashboards & Business Intelligence'
-    },
-    {
-      name: 'Rajesh Khanna',
-      company: 'Speedy Auto Components Ltd',
-      email: 'r.khanna@speedyauto.in',
-      phone: '+919811234567',
-      industry: 'Automotive Engineering',
-      location: 'Chennai, Tamil Nadu',
-      raw: { cncMachines: '40', currentIssue: 'Legacy server crash last month lost 3 days of production work orders' },
-      stage: 'Lost',
-      val: 160000,
-      service: 'Cloud Infrastructure Migration & Modernization'
-    }
-  ];
-
-  const fileId = uuidv4();
-  db.prepare(`
-    INSERT INTO uploaded_files (
-      id, file_name, file_size, file_type, status, extracted_record_count,
-      duplicate_count, invalid_count, missing_value_count, sheet_names
-    ) VALUES (?, 'Enterprise_Business_Prospects_2026.xlsx', 104520, '.xlsx', 'processed', ?, 0, 0, 0, '["Prospective Clients"]')
-  `).run(fileId, sampleCompanies.length);
-
-  for (let i = 0; i < sampleCompanies.length; i++) {
-    const s = sampleCompanies[i];
-    const recId = uuidv4();
-    const leadId = uuidv4();
-
-    db.prepare(`
-      INSERT INTO extracted_records (
-        id, file_id, customer_name, company_name, email, phone, industry, location,
-        raw_fields, sheet_name, row_number, status, is_duplicate, has_missing_values, has_invalid_data
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Prospective Clients', ?, 'in_crm', 0, 0, 0)
-    `).run(
-      recId,
-      fileId,
-      s.name,
-      s.company,
-      s.email,
-      s.phone,
-      s.industry,
-      s.location,
-      JSON.stringify(s.raw),
-      i + 2
-    );
-
-    db.prepare(`
-      INSERT INTO leads (
-        id, extracted_record_id, customer_name, company_name, email, phone,
-        industry, location, lead_source, lead_status, pipeline_value, recommended_service,
-        outcome, follow_up_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Document Import', ?, ?, ?, ?, date('now', '+1 day'))
-    `).run(
-      leadId,
-      recId,
-      s.name,
-      s.company,
-      s.email,
-      s.phone,
-      s.industry,
-      s.location,
-      s.stage,
-      s.val,
-      s.service,
-      s.stage === 'Won' ? 'Accepted' : s.stage === 'Lost' ? 'Rejected' : 'Pending'
-    );
-
-    // Seed proposal for Won, Lost, and Proposal Sent
-    if (s.stage === 'Proposal Sent' || s.stage === 'Won' || s.stage === 'Lost') {
-      const propId = uuidv4();
-      const pStatus = s.stage === 'Won' ? 'accepted' : s.stage === 'Lost' ? 'rejected' : 'sent';
-      db.prepare(`
-        INSERT INTO proposals (id, lead_id, title, value, status, sent_date)
-        VALUES (?, ?, ?, ?, ?, date('now', '-3 days'))
-      `).run(propId, leadId, `${s.service} Implementation Package`, s.val, pStatus);
-
-      if (s.stage === 'Won' || s.stage === 'Lost') {
-        db.prepare(`
-          INSERT INTO sales_outcomes (id, lead_id, proposal_id, outcome, contract_value, rejection_reason)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `).run(
-          uuidv4(),
-          leadId,
-          propId,
-          s.stage === 'Won' ? 'Accepted' : 'Rejected',
-          s.stage === 'Won' ? s.val : 0,
-          s.stage === 'Lost' ? 'Customer deferred budget to next fiscal quarter' : null
-        );
-      }
-    }
-
-    // Seed a call log
-    db.prepare(`
-      INSERT INTO call_logs (
-        id, lead_id, duration_seconds, connected, interested, objections_raised,
-        customer_feedback, final_outcome, notes
-      ) VALUES (?, ?, 145, 1, 1, '["Already have a developer"]', 'Discussed technical co-development model', 'Interested', 'High interest in initial technical scope')
-    `).run(uuidv4(), leadId);
-
-    // Seed follow up task
-    db.prepare(`
-      INSERT INTO follow_up_tasks (
-        id, lead_id, task_type, title, description, due_date, priority, status
-      ) VALUES (?, ?, 'proposal_followup', ?, 'Follow-up on technical deliverables and scope confirmation', date('now'), 'high', 'due_today')
-    `).run(uuidv4(), leadId, `Follow up with ${s.name} on ${s.service}`);
-  }
-
-  logAudit('SEED_SAMPLE_DATA', 'system', undefined, { count: sampleCompanies.length });
-
-  return res.json({ success: true, count: sampleCompanies.length });
+  try {
+    db.prepare("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('account_cleared_by_user', '0')").run();
+  } catch {}
+  seedRealInitialFilesAndRecords(db, true);
+  syncGivenDataOnly();
+  logAudit('SEED_SAMPLE_DATA', 'system', undefined, { count: 335 });
+  return res.json({ success: true, count: 335 });
 });
 
 // ==============================================================================
@@ -2172,6 +1990,18 @@ apiRouter.post('/reset-data', (req: Request, res: Response) => {
   return res.json({
     success: true,
     message: 'All customer records, documents, outreach, calls, and CRM pipeline have been reset. Account is ready in clean new account state.'
+  });
+});
+
+apiRouter.post('/database/seed-sample-data', (req: Request, res: Response) => {
+  try {
+    db.prepare("INSERT OR REPLACE INTO system_settings (key, value) VALUES ('account_cleared_by_user', '0')").run();
+  } catch {}
+  seedRealInitialFilesAndRecords(db, true);
+  syncGivenDataOnly();
+  return res.json({
+    success: true,
+    message: 'Demonstration documents and records have been reloaded.'
   });
 });
 

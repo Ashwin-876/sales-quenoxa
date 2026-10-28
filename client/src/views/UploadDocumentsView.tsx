@@ -113,14 +113,9 @@ export const UploadDocumentsView: React.FC<UploadDocumentsViewProps> = ({
   const loadFiles = async () => {
     try {
       const data = await api.getFiles();
-      if (data && data.length > 0) {
-        setFiles(data);
-      } else {
-        setFiles(SAMPLE_REGISTRY_FILES);
-      }
+      setFiles(data || []);
     } catch (err: any) {
       console.error('Failed to load files:', err);
-      setFiles(SAMPLE_REGISTRY_FILES);
     }
   };
 
@@ -179,23 +174,25 @@ export const UploadDocumentsView: React.FC<UploadDocumentsViewProps> = ({
 
   // Metrics Calculations
   const metrics = useMemo(() => {
-    const list = files.length > 0 ? files : SAMPLE_REGISTRY_FILES;
+    const list = files;
     const totalRecords = list.reduce((acc, f) => acc + (f.extractedRecordCount || 0), 0);
     const totalDuplicates = list.reduce((acc, f) => acc + (f.duplicateCount || 0), 0);
     const totalMissing = list.reduce((acc, f) => acc + (f.missingValueCount || 0), 0);
-    const qualityScore = Math.max(88, Math.min(99, 100 - Math.round((totalMissing / Math.max(totalRecords, 1)) * 30)));
+    const qualityScore = totalRecords > 0
+      ? Math.max(88, Math.min(99, 100 - Math.round((totalMissing / Math.max(totalRecords, 1)) * 30)))
+      : 0;
 
     return {
-      totalRecords: totalRecords || 335,
-      totalDuplicates: totalDuplicates ?? 6,
-      totalMissing: totalMissing || 78,
-      qualityScore: qualityScore || 93
+      totalRecords,
+      totalDuplicates,
+      totalMissing,
+      qualityScore
     };
   }, [files]);
 
   // Filtered files list
   const filteredFiles = useMemo(() => {
-    const list = files.length > 0 ? files : SAMPLE_REGISTRY_FILES;
+    const list = files;
     if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase();
     return list.filter(f =>
@@ -644,7 +641,42 @@ export const UploadDocumentsView: React.FC<UploadDocumentsViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-sans">
-              {filteredFiles.map((file, idx) => {
+              {filteredFiles.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+                        <FileSpreadsheet className="w-6 h-6 stroke-[1.8]" />
+                      </div>
+                      <div className="text-center">
+                        <h4 className="text-sm font-bold text-slate-800">Workspace is empty</h4>
+                        <p className="text-xs text-slate-400 max-w-sm mt-0.5">
+                          All documents and customer records have been cleared. Upload new files above to begin.
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          try {
+                            setIsUploading(true);
+                            await api.seedSampleData();
+                            await loadFiles();
+                            onRefreshMetrics();
+                          } catch (e: any) {
+                            alert(e?.message || 'Failed to reload demo data');
+                          } finally {
+                            setIsUploading(false);
+                          }
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold transition-all border border-emerald-200 cursor-pointer flex items-center space-x-1.5"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Reload Demonstration Data (335 Records)</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredFiles.map((file, idx) => {
                 const dt = formatDateTime(file.uploadDate);
                 const subTitle = file.sheetNames && file.sheetNames.length > 0
                   ? `Sheet: ${file.sheetNames[0]}`
@@ -760,8 +792,9 @@ export const UploadDocumentsView: React.FC<UploadDocumentsViewProps> = ({
                     </td>
                   </tr>
                 );
-              })}
-            </tbody>
+              })
+            )}
+          </tbody>
           </table>
         </div>
       </div>
