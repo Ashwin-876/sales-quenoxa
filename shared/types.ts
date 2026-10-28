@@ -578,6 +578,9 @@ export interface TeamMember {
   completedCalls: number;
   closedWonDeals: number;
   acceptanceRate: number; // calculated percentage
+  division?: string;
+  status?: 'Active' | 'Away' | 'Inactive';
+  phone?: string;
 }
 
 export interface DashboardMetrics {

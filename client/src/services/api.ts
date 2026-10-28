@@ -74,6 +74,17 @@ export const api = {
   // Auth & Team
   getCurrentUser: () => fetchJson<{ id: string; email: string; fullName: string; role: string; avatarUrl: string }>(`${API_BASE}/auth/me`),
   getTeamMembers: () => fetchJson<TeamMember[]>(`${API_BASE}/team`),
+  createTeamMember: (data: Partial<TeamMember>) => fetchJson<TeamMember>(`${API_BASE}/team`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  updateTeamMember: (id: string, data: Partial<TeamMember>) => fetchJson<{ success: boolean }>(`${API_BASE}/team/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  }),
+  deleteTeamMember: (id: string) => fetchJson<{ success: boolean }>(`${API_BASE}/team/${id}`, {
+    method: 'DELETE',
+  }),
 
   // File Upload & Management
   uploadFiles: async (files: File[]) => {

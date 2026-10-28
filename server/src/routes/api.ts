@@ -111,11 +111,82 @@ apiRouter.get('/team', (req: Request, res: Response) => {
       activeLeads: userLeads.length,
       completedCalls,
       closedWonDeals: won,
-      acceptanceRate: rate
+      acceptanceRate: rate,
+      division: 'Enterprise Solutions & AI Delivery',
+      status: u.is_active !== 0 ? 'Active' : 'Inactive'
     };
   });
 
   return res.json(team);
+});
+
+apiRouter.post('/team', (req: Request, res: Response) => {
+  const { name, email, role, avatar, division } = req.body;
+  if (!name || !email) {
+    return res.status(400).json({ error: 'Name and email are required' });
+  }
+
+  const id = uuidv4();
+  const dbRole = role === 'Admin' ? 'admin' : role === 'Sales Manager' ? 'sales_manager' : role === 'Business Analyst' ? 'business_analyst' : 'sales_rep';
+  const avatarUrl = avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150';
+
+  try {
+    db.prepare(`
+      INSERT INTO users (id, email, full_name, role, avatar_url, is_active)
+      VALUES (?, ?, ?, ?, ?, 1)
+    `).run(id, email, name, dbRole, avatarUrl);
+
+    return res.json({
+      id,
+      name,
+      email,
+      role: role || 'Sales Rep',
+      avatar: avatarUrl,
+      activeLeads: 0,
+      completedCalls: 0,
+      closedWonDeals: 0,
+      acceptanceRate: 0,
+      division: division || 'Enterprise Solutions & AI Delivery',
+      status: 'Active'
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to create team member' });
+  }
+});
+
+apiRouter.put('/team/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { name, email, role, avatar, status } = req.body;
+
+  const dbRole = role === 'Admin' ? 'admin' : role === 'Sales Manager' ? 'sales_manager' : role === 'Business Analyst' ? 'business_analyst' : 'sales_rep';
+  const isActive = status === 'Inactive' ? 0 : 1;
+
+  try {
+    db.prepare(`
+      UPDATE users
+      SET full_name = COALESCE(?, full_name),
+          email = COALESCE(?, email),
+          role = COALESCE(?, role),
+          avatar_url = COALESCE(?, avatar_url),
+          is_active = COALESCE(?, is_active),
+          updated_at = datetime('now')
+      WHERE id = ?
+    `).run(name, email, dbRole, avatar, isActive, id);
+
+    return res.json({ success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to update team member' });
+  }
+});
+
+apiRouter.delete('/team/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    return res.json({ success: true });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to delete team member' });
+  }
 });
 
 // ==============================================================================
