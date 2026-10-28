@@ -25,9 +25,9 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL
   ? `${import.meta.env.VITE_API_BASE_URL.replace(/\/+$/, '')}/api/v1`
   : '/api/v1';
 
-async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+async function fetchWithTimeout<T>(url: string, options?: RequestInit, timeoutMs = 60000): Promise<T> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(url, {
@@ -48,7 +48,20 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   } catch (err: any) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      throw new Error('Connection timed out. Please check your backend connection.');
+      throw new Error('Connection timed out. The server may be waking up from sleep; please try again in a moment.');
+    }
+    throw err;
+  }
+}
+
+async function fetchJson<T>(url: string, options?: RequestInit, retries = 1): Promise<T> {
+  try {
+    return await fetchWithTimeout<T>(url, options, 60000);
+  } catch (err: any) {
+    if (retries > 0 && (err.name === 'AbortError' || err.message?.includes('network') || err.message?.includes('Failed to fetch'))) {
+      // Small pause before retrying while container spins up
+      await new Promise(r => setTimeout(r, 2000));
+      return fetchJson<T>(url, options, retries - 1);
     }
     throw err;
   }
