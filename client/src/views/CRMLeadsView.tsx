@@ -5,6 +5,7 @@ import {
   Filter,
   IndianRupee,
   PhoneCall,
+  Phone,
   MessageSquare,
   Mail,
   Calendar,
@@ -19,7 +20,11 @@ import {
   Sparkles,
   Building2,
   Globe,
-  AlertCircle
+  AlertCircle,
+  Upload,
+  RefreshCw,
+  MapPin,
+  Tag
 } from 'lucide-react';
 import { Lead, PipelineStage, ExtractedRecord } from '../../../shared/types.js';
 import { api } from '../services/api';
@@ -30,6 +35,17 @@ interface CRMLeadsViewProps {
   onRefreshMetrics: () => void;
   onSelectRecordForAnalysis?: (record: ExtractedRecord) => void;
 }
+
+const PIPELINE_STAGES: PipelineStage[] = [
+  'New Lead',
+  'Interested',
+  'Follow-up Required',
+  'Meeting Scheduled',
+  'Proposal Sent',
+  'Negotiation',
+  'Won',
+  'Lost'
+];
 
 export const CRMLeadsView: React.FC<CRMLeadsViewProps> = ({
   onNavigate,
@@ -42,21 +58,6 @@ export const CRMLeadsView: React.FC<CRMLeadsViewProps> = ({
   const [stageFilter, setStageFilter] = useState('All');
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
-  const PIPELINE_STAGES: PipelineStage[] = [
-    'New Lead',
-    'Analyzed',
-    'Qualified',
-    'Contacted',
-    'Interested',
-    'Follow-up Required',
-    'Meeting Scheduled',
-    'Proposal Sent',
-    'Negotiation',
-    'Won',
-    'Lost',
-    'Not Qualified'
-  ];
-
   const loadLeads = async () => {
     setLoading(true);
     try {
@@ -64,7 +65,7 @@ export const CRMLeadsView: React.FC<CRMLeadsViewProps> = ({
         stage: stageFilter !== 'All' ? stageFilter : undefined,
         search: search || undefined
       });
-      setLeads(data);
+      setLeads(data || []);
     } catch (err) {
       console.error('Failed to load leads:', err);
     } finally {
@@ -136,51 +137,82 @@ export const CRMLeadsView: React.FC<CRMLeadsViewProps> = ({
     }
   };
 
+  const getStageBadgeStyle = (stage?: string) => {
+    const s = (stage || '').toLowerCase();
+    if (s.includes('won') || s.includes('accept')) {
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    }
+    if (s.includes('lost') || s.includes('reject')) {
+      return 'bg-rose-50 text-rose-700 border-rose-200';
+    }
+    if (s.includes('propos')) {
+      return 'bg-red-50 text-red-700 border-red-200';
+    }
+    if (s.includes('negot')) {
+      return 'bg-blue-50 text-blue-700 border-blue-200';
+    }
+    if (s.includes('meet')) {
+      return 'bg-purple-50 text-purple-700 border-purple-200';
+    }
+    if (s.includes('follow')) {
+      return 'bg-amber-50 text-amber-700 border-amber-200';
+    }
+    if (s.includes('interest')) {
+      return 'bg-teal-50 text-teal-700 border-teal-200';
+    }
+    return 'bg-sky-50 text-sky-700 border-sky-200';
+  };
+
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-[1600px] mx-auto min-h-screen">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Customer Lead & Pipeline Management</h2>
-          <p className="text-xs text-slate-500">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+            Customer Lead & Pipeline Management
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 font-normal mt-0.5">
             Individual customer tracking: 13-point profile metrics, live digital presence, AI analysis status, and follow-up schedules.
           </p>
         </div>
 
         <button
           onClick={() => onNavigate('sales-pipeline')}
-          className="px-3.5 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-xs flex items-center space-x-1.5"
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-xs flex items-center space-x-2 shrink-0 self-start sm:self-auto"
         >
           <span>Open Kanban Board</span>
-          <ArrowRight className="w-3.5 h-3.5" />
+          <ArrowRight className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Search and Filter Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-subtle flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        <form onSubmit={(e) => { e.preventDefault(); loadLeads(); }} className="flex-1 relative">
+      {/* Search and Stage Filter Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+        <form
+          onSubmit={(e) => { e.preventDefault(); loadLeads(); }}
+          className="flex-1 relative"
+        >
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Search leads by business name, contact person, phone, email, industry, location..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-20 py-2 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-emerald-500 bg-slate-50/50"
+            className="w-full pl-9 pr-24 py-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-slate-800 placeholder-slate-400 transition-all"
           />
           <button
             type="submit"
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-emerald-600 text-white rounded text-[11px] font-semibold hover:bg-emerald-700"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-lg text-xs font-semibold transition-all shadow-2xs"
           >
             Search
           </button>
         </form>
 
-        <div className="flex items-center space-x-2 shrink-0">
+        <div className="flex items-center space-x-2.5 shrink-0 self-end md:self-auto">
           <span className="text-xs text-slate-500 font-medium">Stage:</span>
           <select
             value={stageFilter}
             onChange={(e) => setStageFilter(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 shadow-xs focus:ring-1 focus:ring-emerald-500"
+            className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 shadow-2xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer"
           >
             <option value="All">All Stages ({leads.length})</option>
             {PIPELINE_STAGES.map(s => (
@@ -190,26 +222,24 @@ export const CRMLeadsView: React.FC<CRMLeadsViewProps> = ({
         </div>
       </div>
 
-      {/* Full 13-Column Customer Lead Table with sticky headers */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-subtle overflow-hidden">
-        <div className="table-container max-h-[640px] overflow-auto">
-          <table className="w-full text-left text-xs table-sticky-header">
-            <thead className="border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider bg-slate-100/90 backdrop-blur-xs">
+      {/* 12-Column Customer Lead Table matching exact design */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="table-container max-h-[660px] overflow-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="border-b border-slate-200/80 bg-slate-50/70 text-slate-600 font-bold tracking-tight sticky top-0 z-10 backdrop-blur-xs">
               <tr>
-                <th className="py-3 px-3 min-w-[160px]">1. Business Name</th>
-                <th className="py-3 px-3 min-w-[120px]">2. Industry</th>
-                <th className="py-3 px-3 min-w-[130px]">3. Contact Person</th>
-                <th className="py-3 px-3 min-w-[110px]">4. Phone Number</th>
-                <th className="py-3 px-3 min-w-[130px]">5. Email</th>
-                <th className="py-3 px-3 min-w-[100px]">6. Location</th>
-                <th className="py-3 px-3 min-w-[110px]">7. Website</th>
-                <th className="py-3 px-3 min-w-[140px]">8. Existing Digital Presence</th>
-                <th className="py-3 px-3 min-w-[100px]">9. Analysis Status</th>
-                <th className="py-3 px-3 min-w-[150px]">10. Recommended Service</th>
-                <th className="py-3 px-3 min-w-[90px]">11. Lead Priority</th>
-                <th className="py-3 px-3 min-w-[105px]">12. Last Contacted</th>
-                <th className="py-3 px-3 min-w-[105px]">13. Next Follow-up</th>
-                <th className="py-3 px-3 min-w-[150px] text-right sticky right-0 bg-slate-100 z-10 shadow-xs">
+                <th className="py-3.5 px-4 w-12 text-slate-400 font-medium">#</th>
+                <th className="py-3.5 px-3 min-w-[160px]">Business Name</th>
+                <th className="py-3.5 px-3 min-w-[120px]">Industry</th>
+                <th className="py-3.5 px-3 min-w-[130px]">Contact Person</th>
+                <th className="py-3.5 px-3 min-w-[110px]">Phone</th>
+                <th className="py-3.5 px-3 min-w-[130px]">Email</th>
+                <th className="py-3.5 px-3 min-w-[110px]">Location</th>
+                <th className="py-3.5 px-3 min-w-[110px]">Website</th>
+                <th className="py-3.5 px-3 min-w-[130px]">Digital Presence</th>
+                <th className="py-3.5 px-3 min-w-[120px]">Stage</th>
+                <th className="py-3.5 px-3 min-w-[110px]">Follow-up</th>
+                <th className="py-3.5 px-4 min-w-[130px] text-right sticky right-0 bg-slate-50/90 z-20">
                   Actions
                 </th>
               </tr>
@@ -217,64 +247,145 @@ export const CRMLeadsView: React.FC<CRMLeadsViewProps> = ({
             <tbody className="divide-y divide-slate-100 font-sans">
               {loading ? (
                 <tr>
-                  <td colSpan={14} className="py-12 text-center text-slate-400">Loading CRM leads...</td>
+                  <td colSpan={12} className="py-20 text-center">
+                    <div className="flex flex-col items-center justify-center space-y-2">
+                      <RefreshCw className="w-6 h-6 text-emerald-600 animate-spin" />
+                      <p className="text-xs text-slate-500 font-medium">Loading CRM leads...</p>
+                    </div>
+                  </td>
                 </tr>
               ) : leads.length === 0 ? (
                 <tr>
-                  <td colSpan={14} className="py-12 text-center text-slate-400">
-                    No leads in CRM yet. Import records from Data Explorer.
+                  <td colSpan={12} className="py-16 px-4">
+                    <div className="flex flex-col items-center justify-center text-center">
+                      {/* Document Magnifier Mint Illustration */}
+                      <div className="relative w-28 h-28 flex items-center justify-center mb-3">
+                        {/* Soft mint circular glow background */}
+                        <div className="w-24 h-24 rounded-full bg-emerald-50/80 border border-emerald-100/80 flex items-center justify-center relative shadow-xs">
+                          {/* Top-right sparkle rays */}
+                          <div className="absolute -top-1 -right-1 flex items-center space-x-0.5">
+                            <span className="w-1.5 h-3 bg-emerald-400 rounded-full rotate-45 transform" />
+                            <span className="w-1 h-2 bg-emerald-300 rounded-full rotate-12 transform" />
+                          </div>
+
+                          {/* White Document Card */}
+                          <div className="w-12 h-15 bg-white rounded-lg border border-slate-200/90 shadow-2xs p-2 flex flex-col justify-between">
+                            <div className="space-y-1.5">
+                              <div className="w-6 h-1 bg-slate-300 rounded-full" />
+                              <div className="w-8 h-1 bg-slate-200 rounded-full" />
+                              <div className="w-7 h-1 bg-slate-200 rounded-full" />
+                              <div className="w-5 h-1 bg-slate-200 rounded-full" />
+                            </div>
+                          </div>
+
+                          {/* Green Magnifying Glass Icon tilted */}
+                          <div className="absolute bottom-2 right-2">
+                            <svg className="w-8 h-8 drop-shadow-xs" viewBox="0 0 32 32" fill="none">
+                              <circle cx="13" cy="13" r="8" stroke="#10b981" strokeWidth="3" fill="white" />
+                              <line x1="19" y1="19" x2="28" y2="28" stroke="#059669" strokeWidth="3.5" strokeLinecap="round" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+
+                      <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                        No leads added yet
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1 max-w-sm">
+                        Import leads from Data Explorer to start managing your pipeline.
+                      </p>
+
+                      <button
+                        onClick={() => onNavigate('data-explorer')}
+                        className="mt-4 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-xl text-xs font-semibold transition-all shadow-xs flex items-center space-x-2"
+                      >
+                        <Upload className="w-4 h-4 stroke-[2.2]" />
+                        <span>Import Leads</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ) : (
-                leads.map((lead) => {
+                leads.map((lead, idx) => {
                   const businessName = lead.businessName || lead.companyName || 'Business';
                   const contactPerson = lead.contactPerson || lead.customerName || 'Contact';
-                  const priority = lead.priority || 'High';
-                  const analysisStatus = lead.analysisStatus || (lead.leadStatus === 'Analyzed' ? 'Analysed' : 'Research pending');
+                  const currentStage = (lead.leadStatus as PipelineStage) || 'New Lead';
 
                   return (
-                    <tr key={lead.id} className="hover:bg-emerald-50/40 transition-colors">
-                      {/* 1. Business Name */}
-                      <td className="py-3 px-3">
-                        <span className="font-bold text-slate-900 block">{businessName}</span>
-                        <span className="text-[10px] text-slate-400">{lead.leadSource || 'Direct'}</span>
+                    <tr key={lead.id} className="hover:bg-slate-50/70 transition-colors">
+                      {/* # */}
+                      <td className="py-3.5 px-4 text-slate-400 font-mono text-xs">
+                        {idx + 1}
                       </td>
 
-                      {/* 2. Industry */}
-                      <td className="py-3 px-3">
-                        <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700">
+                      {/* Business Name */}
+                      <td className="py-3.5 px-3">
+                        <span className="font-bold text-slate-900 block truncate max-w-[180px]">
+                          {businessName}
+                        </span>
+                        {lead.leadSource && (
+                          <span className="text-[10px] text-slate-400 block truncate max-w-[180px]">
+                            {lead.leadSource}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Industry */}
+                      <td className="py-3.5 px-3">
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/60 inline-block">
                           {lead.industry || 'General Business'}
                         </span>
                       </td>
 
-                      {/* 3. Contact Person */}
-                      <td className="py-3 px-3">
-                        <span className="font-medium text-slate-800">{contactPerson}</span>
+                      {/* Contact Person */}
+                      <td className="py-3.5 px-3">
+                        <span className="font-medium text-slate-800 block truncate max-w-[140px]">
+                          {contactPerson}
+                        </span>
                       </td>
 
-                      {/* 4. Phone Number */}
-                      <td className="py-3 px-3 font-mono text-[11px] text-slate-700">
-                        {lead.phone || 'N/A'}
+                      {/* Phone */}
+                      <td className="py-3.5 px-3 font-mono text-[11px] text-slate-700">
+                        {lead.phone ? (
+                          <a
+                            href={`tel:${lead.phone}`}
+                            className="hover:text-emerald-600 transition-colors truncate block"
+                          >
+                            {lead.phone}
+                          </a>
+                        ) : (
+                          <span className="text-slate-400 italic">N/A</span>
+                        )}
                       </td>
 
-                      {/* 5. Email */}
-                      <td className="py-3 px-3 text-[11px] text-slate-600 truncate max-w-[140px]" title={lead.email}>
-                        {lead.email || 'N/A'}
+                      {/* Email */}
+                      <td className="py-3.5 px-3 text-[11px] text-slate-600 truncate max-w-[140px]">
+                        {lead.email ? (
+                          <a
+                            href={`mailto:${lead.email}`}
+                            className="hover:text-emerald-600 transition-colors truncate block"
+                            title={lead.email}
+                          >
+                            {lead.email}
+                          </a>
+                        ) : (
+                          <span className="text-slate-400 italic">N/A</span>
+                        )}
                       </td>
 
-                      {/* 6. Location */}
-                      <td className="py-3 px-3 text-slate-700">
+                      {/* Location */}
+                      <td className="py-3.5 px-3 text-slate-700 text-xs truncate max-w-[120px]">
                         {lead.location || 'Local'}
                       </td>
 
-                      {/* 7. Website */}
-                      <td className="py-3 px-3">
+                      {/* Website */}
+                      <td className="py-3.5 px-3">
                         {lead.website ? (
                           <a
                             href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-emerald-600 hover:underline flex items-center space-x-1 font-mono text-[11px]"
+                            className="text-emerald-600 hover:text-emerald-700 hover:underline flex items-center space-x-1 font-mono text-[11px]"
                           >
                             <span className="truncate max-w-[90px]">{lead.website.replace(/^https?:\/\//, '')}</span>
                             <ExternalLink className="w-2.5 h-2.5 shrink-0" />
@@ -284,70 +395,41 @@ export const CRMLeadsView: React.FC<CRMLeadsViewProps> = ({
                         )}
                       </td>
 
-                      {/* 8. Existing Digital Presence */}
-                      <td className="py-3 px-3">
+                      {/* Digital Presence */}
+                      <td className="py-3.5 px-3">
                         <div className="flex flex-wrap gap-1 max-w-[140px]">
-                          {(lead.digitalPresence && lead.digitalPresence.length > 0 ? lead.digitalPresence : ['Basic Presence']).slice(0, 2).map((item, idx) => (
-                            <span key={idx} className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-700 border border-slate-200">
+                          {(lead.digitalPresence && lead.digitalPresence.length > 0 ? lead.digitalPresence : ['Basic']).slice(0, 2).map((item, dIdx) => (
+                            <span key={dIdx} className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600 border border-slate-200/80">
                               {item}
                             </span>
                           ))}
                         </div>
                       </td>
 
-                      {/* 9. Analysis Status */}
-                      <td className="py-3 px-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          analysisStatus === 'Analysed'
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                            : analysisStatus === 'Research pending'
-                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                            : 'bg-slate-100 text-slate-700 border border-slate-200'
-                        }`}>
-                          {analysisStatus}
-                        </span>
+                      {/* Stage */}
+                      <td className="py-3.5 px-3">
+                        <select
+                          value={currentStage}
+                          onChange={(e) => handleStageChange(lead.id, e.target.value as PipelineStage)}
+                          className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${getStageBadgeStyle(currentStage)} focus:outline-none cursor-pointer transition-colors`}
+                        >
+                          {PIPELINE_STAGES.map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
                       </td>
 
-                      {/* 10. Recommended Primary Service */}
-                      <td className="py-3 px-3">
-                        <span className="font-semibold text-emerald-800 text-[11px] block">
-                          {lead.recommendedService || lead.proposedService || 'Custom Automation'}
-                        </span>
-                        <span className="text-[10px] font-mono font-bold text-slate-500">
-                          ₹{Number(lead.pipelineValue || 0).toLocaleString('en-IN')}
-                        </span>
-                      </td>
-
-                      {/* 11. Lead Priority */}
-                      <td className="py-3 px-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
-                          priority === 'High'
-                            ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                            : priority === 'Medium'
-                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {priority}
-                        </span>
-                      </td>
-
-                      {/* 12. Last Contacted Date */}
-                      <td className="py-3 px-3 text-[11px] font-mono text-slate-600">
-                        {lead.lastContactedAt ? lead.lastContactedAt.slice(0, 10) : 'Never'}
-                      </td>
-
-                      {/* 13. Next Follow-up Date */}
-                      <td className="py-3 px-3 text-[11px] font-mono text-slate-700 font-semibold">
+                      {/* Follow-up */}
+                      <td className="py-3.5 px-3 text-[11px] font-mono text-slate-700 font-semibold">
                         {lead.followUpDate || 'None'}
                       </td>
 
-                      {/* Actions: Functional Analyse Customer Button + Edit */}
-                      <td className="py-3 px-3 text-right sticky right-0 bg-white/95 backdrop-blur-xs shadow-xs">
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right sticky right-0 bg-white/95 backdrop-blur-xs shadow-xs">
                         <div className="flex items-center justify-end space-x-1.5">
-                          {/* Prominent Analyse Customer Button */}
                           <button
                             onClick={() => handleAnalyseCustomer(lead)}
-                            className="px-2.5 py-1 text-[11px] font-bold bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors shadow-xs flex items-center space-x-1 shrink-0"
+                            className="px-2.5 py-1 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors shadow-2xs flex items-center space-x-1 shrink-0"
                             title={`Analyse ${businessName} in AI Workspace`}
                           >
                             <Sparkles className="w-3 h-3" />
@@ -356,7 +438,7 @@ export const CRMLeadsView: React.FC<CRMLeadsViewProps> = ({
 
                           <button
                             onClick={() => setEditingLead(lead)}
-                            className="px-2 py-1 text-[11px] font-semibold bg-white border border-slate-200 text-slate-700 rounded-md hover:bg-slate-50 transition-colors shadow-xs"
+                            className="px-2 py-1 text-[11px] font-semibold bg-white border border-slate-200 text-slate-700 rounded-md hover:bg-slate-50 transition-colors shadow-2xs"
                             title="Edit notes and pipeline stage"
                           >
                             Edit
@@ -464,3 +546,4 @@ export const CRMLeadsView: React.FC<CRMLeadsViewProps> = ({
     </div>
   );
 };
+
