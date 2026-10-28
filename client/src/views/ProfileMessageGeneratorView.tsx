@@ -76,73 +76,7 @@ interface CRMLeadItem {
   requirements: string;
 }
 
-const DEFAULT_CRM_LEADS: CRMLeadItem[] = [
-  {
-    id: 'lead-cbe-fit-2',
-    companyName: 'Coimbatore Fitness Hub Unit II',
-    customerName: 'Ramesh Kumar',
-    phone: '+91 98765 43210',
-    email: 'ramesh@fitgym64.in',
-    industry: 'Fitness and Gyms',
-    designation: 'Managing Director',
-    location: 'R.S. Puram, Coimbatore',
-    website: 'https://fitgym64.in',
-    requirements:
-      'Looking to automate member renewals, stop front-desk manual registers, and get 20+ fresh gym membership inquiries every week.'
-  },
-  {
-    id: 'lead-anchor-gym',
-    companyName: 'Anchor Fitness Gym',
-    customerName: 'Priya Sharma',
-    phone: '+91 98765 43211',
-    email: 'priya@anchorfit.in',
-    industry: 'Fitness and Gyms',
-    designation: 'Founder & Head Coach',
-    location: 'Saibaba Colony, Coimbatore',
-    website: 'https://anchorfit.in',
-    requirements:
-      'Need targeted Meta ads for summer fat-loss bootcamp and Google Maps optimization to rank #1 locally.'
-  },
-  {
-    id: 'lead-arulpower',
-    companyName: 'Arulpowergym',
-    customerName: 'Arul Prakash',
-    phone: '+91 98765 43212',
-    email: 'contact@arulpowergym.com',
-    industry: 'Fitness and Gyms',
-    designation: 'Owner',
-    location: 'Gandhipuram, Coimbatore',
-    website: 'https://arulpowergym.com',
-    requirements:
-      'Want automated WhatsApp fee payment reminders and membership renewal tracking software to reduce churn.'
-  },
-  {
-    id: 'lead-boss-fitness',
-    companyName: 'Boss Fitness | Unisex gym | Ram nagar',
-    customerName: 'Karthik Vel',
-    phone: '+91 98765 43213',
-    email: 'karthik@bossfitnesscbe.in',
-    industry: 'Fitness and Gyms',
-    designation: 'Managing Partner',
-    location: 'Ram Nagar, Coimbatore',
-    website: 'https://bossfitnesscbe.in',
-    requirements:
-      'Need high-converting landing page and Meta Ads campaign for annual membership drive with QR check-in.'
-  },
-  {
-    id: 'lead-bigmuscles',
-    companyName: 'Big Muscles Ladies Gym',
-    customerName: 'Sneha R',
-    phone: '+91 98765 43214',
-    email: 'sneha@bigmusclesladies.in',
-    industry: 'Fitness and Gyms',
-    designation: 'Center Head',
-    location: 'Race Course, Coimbatore',
-    website: 'https://bigmusclesladies.in',
-    requirements:
-      'Looking for female fitness community social media marketing and automated member appointment booking app.'
-  }
-];
+const DEFAULT_CRM_LEADS: CRMLeadItem[] = [];
 
 const PREDEFINED_INDUSTRIES = [
   'Fitness and Gyms',
@@ -184,28 +118,26 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
   const [showProviderModal, setShowProviderModal] = useState(false);
   const [editingProvider, setEditingProvider] = useState<ProviderSettings>(provider);
 
-  // CRM Leads List & Dropdown State
-  const [crmLeads, setCrmLeads] = useState<CRMLeadItem[]>(DEFAULT_CRM_LEADS);
-  const [selectedLeadId, setSelectedLeadId] = useState<string>('lead-cbe-fit-2');
+  // CRM Leads List & Dropdown State (populated only with real live CRM tool data)
+  const [crmLeads, setCrmLeads] = useState<CRMLeadItem[]>([]);
+  const [selectedLeadId, setSelectedLeadId] = useState<string>('');
   const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
-  const [lastSyncedTime, setLastSyncedTime] = useState('Oct 26, 2026, 1:37 PM');
+  const [lastSyncedTime, setLastSyncedTime] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const customerDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Customer Profile Form State (default initialized to Coimbatore Fitness Hub Unit II)
-  const [customerName, setCustomerName] = useState('Ramesh Kumar');
-  const [companyName, setCompanyName] = useState('Coimbatore Fitness Hub Unit II');
-  const [customerPhone, setCustomerPhone] = useState('+91 98765 43210');
-  const [customerEmail, setCustomerEmail] = useState('ramesh@fitgym64.in');
+  // Customer Profile Form State (defaults to empty so only real CRM data is used)
+  const [customerName, setCustomerName] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
   const [industry, setIndustry] = useState('Fitness and Gyms');
   const [customIndustry, setCustomIndustry] = useState('');
   const [designation, setDesignation] = useState('Managing Director');
-  const [location, setLocation] = useState('R.S. Puram, Coimbatore');
-  const [website, setWebsite] = useState('https://fitgym64.in');
-  const [requirements, setRequirements] = useState(
-    'Looking to automate member renewals, stop front-desk manual registers, and get 20+ fresh gym membership inquiries every week.'
-  );
+  const [location, setLocation] = useState('');
+  const [website, setWebsite] = useState('');
+  const [requirements, setRequirements] = useState('');
   const [preferredChannel, setPreferredChannel] = useState<MarketingChannel>('WhatsApp');
   const [messageType, setMessageType] = useState<MarketingMessageType>('Introduction');
   const [language, setLanguage] = useState<MarketingLanguage>('English');
@@ -291,11 +223,12 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
 
   const loadInitialData = async () => {
     try {
-      const [prov, profs, hist, srvs, recs] = await Promise.all([
+      const [prov, profs, hist, srvs, crmLeadsRes, recs] = await Promise.all([
         api.getMarketingProviderSettings().catch(() => provider),
         api.getMarketingProfiles().catch(() => []),
         api.getMarketingHistory().catch(() => []),
         api.getMarketingServices().catch(() => []),
+        api.getLeads().catch(() => [] as Lead[]),
         api.getRecords({ limit: 150 }).catch(() => ({ records: [], total: 0 }))
       ]);
 
@@ -307,30 +240,59 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
       if (hist) setHistory(hist);
       if (srvs) setAllServices(srvs);
 
-      // Merge real CRM records if any exist
-      if (recs && recs.records && recs.records.length > 0) {
-        const mappedRecords: CRMLeadItem[] = recs.records.map((r: ExtractedRecord, idx: number) => ({
-          id: r.id || `crm-rec-${idx}`,
-          companyName: r.companyName || r.businessName || `Prospect #${idx + 1}`,
-          customerName: r.contactPerson || r.customerName || 'Business Owner',
-          phone: (r as any).phone || r.contactNumber || (r as any).mobile || '+91 98765 00000',
-          email: r.email,
-          industry: r.industry || 'Fitness and Gyms',
-          designation: 'Managing Director',
-          location: r.location || 'Coimbatore, Tamil Nadu',
-          website: r.website || '',
-          requirements:
-            'Need digital solutions to streamline client acquisition, automated operations, and improve regional brand presence.'
-        }));
+      const realLeads: CRMLeadItem[] = [];
 
-        // Combine default leads with real extracted records without duplicates
-        const combined = [...DEFAULT_CRM_LEADS];
-        mappedRecords.forEach(m => {
-          if (!combined.some(c => c.companyName.toLowerCase() === m.companyName.toLowerCase())) {
-            combined.push(m);
+      // 1. Leads directly from CRM Tool (Lead Management)
+      if (Array.isArray(crmLeadsRes) && crmLeadsRes.length > 0) {
+        crmLeadsRes.forEach((l: Lead) => {
+          if (l.leadStatus === 'Lost' || l.rejectionReason) return;
+          const cName = l.companyName || l.businessName;
+          if (!cName) return;
+          realLeads.push({
+            id: l.id,
+            companyName: cName,
+            customerName: l.customerName || l.contactPerson || 'Business Owner',
+            phone: l.phone || '',
+            email: l.email || '',
+            industry: l.industry || 'Fitness and Gyms',
+            designation: (l as any).designation || 'Managing Director',
+            location: l.location || 'Coimbatore, Tamil Nadu',
+            website: l.website || '',
+            requirements: l.proposedService || l.recommendedService || l.notes || ''
+          });
+        });
+      }
+
+      // 2. Extracted Records from uploaded customer files in CRM / Data Explorer
+      if (recs && recs.records && recs.records.length > 0) {
+        recs.records.forEach((r: ExtractedRecord, idx: number) => {
+          if (r.crmStatus === 'rejected' || r.rejectionReason) return;
+          const cName = r.companyName || r.businessName;
+          if (!cName) return;
+          if (!realLeads.some(rl => rl.companyName.toLowerCase() === cName.toLowerCase())) {
+            realLeads.push({
+              id: r.id || `crm-rec-${idx}`,
+              companyName: cName,
+              customerName: r.contactPerson || r.customerName || 'Business Owner',
+              phone: (r as any).phone || r.contactNumber || (r as any).mobile || '',
+              email: r.email || '',
+              industry: r.industry || 'Fitness and Gyms',
+              designation: 'Managing Director',
+              location: r.location || 'Coimbatore, Tamil Nadu',
+              website: r.website || '',
+              requirements: r.recommendedService ? `Interested in ${r.recommendedService}` : ''
+            });
           }
         });
-        setCrmLeads(combined);
+      }
+
+      setCrmLeads(realLeads);
+
+      if (realLeads.length > 0) {
+        setLastSyncedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        if (!selectedRecord) {
+          handleSelectCustomer(realLeads[0]);
+        }
       }
     } catch (e) {
       console.error('Failed to load initial marketing generator data:', e);
@@ -366,10 +328,12 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
     }
   }, [selectedRecord]);
 
-  // Initial generation on component load
+  // Initial generation on component load only when companyName is present
   useEffect(() => {
-    handleGenerate(false);
-  }, []);
+    if (companyName.trim()) {
+      handleGenerate(false);
+    }
+  }, [companyName]);
 
   // Update active editable content when active tab changes or outputs update
   useEffect(() => {
@@ -527,36 +491,71 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
   const handleSyncCRM = async () => {
     setIsSyncing(true);
     try {
-      const recs = await api.getRecords({ limit: 150 });
+      const [crmLeadsRes, recs] = await Promise.all([
+        api.getLeads().catch(() => [] as Lead[]),
+        api.getRecords({ limit: 150 }).catch(() => ({ records: [], total: 0 }))
+      ]);
+
+      const realLeads: CRMLeadItem[] = [];
+
+      // 1. Leads from CRM Tool
+      if (Array.isArray(crmLeadsRes) && crmLeadsRes.length > 0) {
+        crmLeadsRes.forEach((l: Lead) => {
+          if (l.leadStatus === 'Lost' || l.rejectionReason) return;
+          const cName = l.companyName || l.businessName;
+          if (!cName) return;
+          realLeads.push({
+            id: l.id,
+            companyName: cName,
+            customerName: l.customerName || l.contactPerson || 'Business Owner',
+            phone: l.phone || '',
+            email: l.email || '',
+            industry: l.industry || 'Fitness and Gyms',
+            designation: (l as any).designation || 'Managing Director',
+            location: l.location || 'Coimbatore, Tamil Nadu',
+            website: l.website || '',
+            requirements: l.proposedService || l.recommendedService || l.notes || ''
+          });
+        });
+      }
+
+      // 2. Extracted Records from Data Explorer
       if (recs && recs.records && recs.records.length > 0) {
-        const mappedRecords: CRMLeadItem[] = recs.records.map((r: ExtractedRecord, idx: number) => ({
-          id: r.id || `crm-rec-${idx}`,
-          companyName: r.companyName || r.businessName || `Prospect #${idx + 1}`,
-          customerName: r.contactPerson || r.customerName || 'Business Owner',
-          phone: (r as any).phone || r.contactNumber || (r as any).mobile || '+91 98765 00000',
-          email: r.email,
-          industry: r.industry || 'Fitness and Gyms',
-          designation: 'Managing Director',
-          location: r.location || 'Coimbatore, Tamil Nadu',
-          website: r.website || '',
-          requirements:
-            'Need digital solutions to streamline client acquisition, automated operations, and improve regional brand presence.'
-        }));
-        const combined = [...DEFAULT_CRM_LEADS];
-        mappedRecords.forEach(m => {
-          if (!combined.some(c => c.companyName.toLowerCase() === m.companyName.toLowerCase())) {
-            combined.push(m);
+        recs.records.forEach((r: ExtractedRecord, idx: number) => {
+          if (r.crmStatus === 'rejected' || r.rejectionReason) return;
+          const cName = r.companyName || r.businessName;
+          if (!cName) return;
+          if (!realLeads.some(rl => rl.companyName.toLowerCase() === cName.toLowerCase())) {
+            realLeads.push({
+              id: r.id || `crm-rec-${idx}`,
+              companyName: cName,
+              customerName: r.contactPerson || r.customerName || 'Business Owner',
+              phone: (r as any).phone || r.contactNumber || (r as any).mobile || '',
+              email: r.email || '',
+              industry: r.industry || 'Fitness and Gyms',
+              designation: 'Managing Director',
+              location: r.location || 'Coimbatore, Tamil Nadu',
+              website: r.website || '',
+              requirements: r.recommendedService ? `Interested in ${r.recommendedService}` : ''
+            });
           }
         });
-        setCrmLeads(combined);
       }
+
+      setCrmLeads(realLeads);
       const now = new Date();
       setLastSyncedTime(
         now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
           ', ' +
           now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
       );
-      setStatusMessage({ type: 'success', text: 'CRM customer leads synchronized successfully.' });
+      setStatusMessage({
+        type: 'success',
+        text: `CRM customer leads synchronized: ${realLeads.length} live lead(s) found.`
+      });
+      if (realLeads.length > 0 && !companyName) {
+        handleSelectCustomer(realLeads[0]);
+      }
     } catch (e: any) {
       setStatusMessage({ type: 'error', text: 'Failed to sync CRM leads: ' + e?.message });
     } finally {
@@ -987,7 +986,11 @@ https://www.quenoxa.com | info@quenoxa.com
                 <div className="flex items-center space-x-2.5 overflow-hidden">
                   <Search className="w-4 h-4 text-slate-400 shrink-0" />
                   <span className="text-xs text-slate-700 truncate font-medium">
-                    {companyName ? `${companyName} (${customerName})` : 'Search by business name, contact, phone or email...'}
+                    {companyName
+                      ? `${companyName}${customerName ? ` (${customerName})` : ''}`
+                      : crmLeads.length > 0
+                      ? 'Select a customer from CRM leads...'
+                      : 'No CRM tool leads available — upload prospect files or add leads'}
                   </span>
                 </div>
                 <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isCustomerDropdownOpen ? 'rotate-180' : ''}`} />
@@ -1008,44 +1011,63 @@ https://www.quenoxa.com | info@quenoxa.com
                     />
                   </div>
 
-                  {filteredCrmLeads.map((lead) => {
-                    const isSelected = lead.id === selectedLeadId;
-                    return (
-                      <div
-                        key={lead.id}
-                        onClick={() => handleSelectCustomer(lead)}
-                        className={`p-2.5 rounded-lg flex items-center justify-between cursor-pointer transition-colors ${
-                          isSelected
-                            ? 'bg-emerald-50/80 border border-emerald-300'
-                            : 'hover:bg-slate-50 border border-transparent'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-2.5 overflow-hidden">
-                          <div
-                            className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                              isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            <Building2 className="w-4 h-4" />
-                          </div>
-                          <div className="truncate">
-                            <div className="text-xs font-bold text-slate-800 truncate">
-                              {lead.companyName}
+                  {filteredCrmLeads.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-500 space-y-1.5">
+                      <p className="font-semibold text-slate-700">No CRM leads found</p>
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        Only real CRM tool data is shown. Upload your prospect spreadsheet in Data Explorer or add leads in CRM Lead Management to select them here.
+                      </p>
+                      {onNavigate && (
+                        <button
+                          type="button"
+                          onClick={() => onNavigate('data')}
+                          className="mt-1 px-3 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-lg text-xs font-semibold cursor-pointer inline-flex items-center gap-1"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>Go to Data Explorer</span>
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    filteredCrmLeads.map((lead) => {
+                      const isSelected = lead.id === selectedLeadId;
+                      return (
+                        <div
+                          key={lead.id}
+                          onClick={() => handleSelectCustomer(lead)}
+                          className={`p-2.5 rounded-lg flex items-center justify-between cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'bg-emerald-50/80 border border-emerald-300'
+                              : 'hover:bg-slate-50 border border-transparent'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2.5 overflow-hidden">
+                            <div
+                              className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                isSelected ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'
+                              }`}
+                            >
+                              <Building2 className="w-4 h-4" />
                             </div>
-                            <div className="text-[11px] text-slate-500 truncate">
-                              {lead.customerName} {lead.phone ? `· ${lead.phone}` : ''}
+                            <div className="truncate">
+                              <div className="text-xs font-bold text-slate-800 truncate">
+                                {lead.companyName}
+                              </div>
+                              <div className="text-[11px] text-slate-500 truncate">
+                                {lead.customerName} {lead.phone ? `· ${lead.phone}` : ''}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        {isSelected && (
-                          <div className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 ml-2">
-                            <Check className="w-2.5 h-2.5 stroke-[3]" />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                          {isSelected && (
+                            <div className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 ml-2">
+                              <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               )}
             </div>
