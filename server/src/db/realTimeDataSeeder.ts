@@ -127,15 +127,11 @@ export function seedRealInitialFilesAndRecords(db: Database.Database, force: boo
     const existingCount = (db.prepare('SELECT COUNT(*) as cnt FROM uploaded_files').get() as { cnt: number }).cnt;
     const existingRecCount = (db.prepare('SELECT COUNT(*) as cnt FROM extracted_records').get() as { cnt: number }).cnt;
 
-    // Clean up any legacy uploaded files that don't match our standard file IDs
-    db.prepare("DELETE FROM extracted_records WHERE file_id NOT IN ('file-coimbatore-gyms-001', 'file-quenoxa-brochure-002', 'file-client-list-003', 'file-scanned-cards-004', 'file-restaurant-leads-005')").run();
-    db.prepare("DELETE FROM uploaded_files WHERE id NOT IN ('file-coimbatore-gyms-001', 'file-quenoxa-brochure-002', 'file-client-list-003', 'file-scanned-cards-004', 'file-restaurant-leads-005')").run();
-
-    // Check again
+    // Do not delete user-uploaded files
     const canonCount = (db.prepare('SELECT COUNT(*) as cnt FROM uploaded_files').get() as { cnt: number }).cnt;
     const canonRecCount = (db.prepare('SELECT COUNT(*) as cnt FROM extracted_records').get() as { cnt: number }).cnt;
 
-    if (canonCount === 5 && canonRecCount === 335) {
+    if (!force && canonCount > 0) {
       return;
     }
 

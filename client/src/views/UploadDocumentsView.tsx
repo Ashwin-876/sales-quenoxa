@@ -33,70 +33,6 @@ interface UploadDocumentsViewProps {
   onRefreshMetrics: () => void;
 }
 
-// Default demonstration records to populate table if none exist yet
-const SAMPLE_REGISTRY_FILES: UploadedFileRecord[] = [
-  {
-    id: 'sample-1',
-    fileName: 'Coimbatore_Gyms_Without_Website.xlsx',
-    fileSize: 20070,
-    fileType: '.xlsx',
-    extractedRecordCount: 115,
-    duplicateCount: 2,
-    missingValueCount: 34,
-    uploadDate: new Date('2026-10-28T10:24:00Z').toISOString(),
-    sheetNames: ['Gyms Without Website'],
-    ocrApplied: false
-  },
-  {
-    id: 'sample-2',
-    fileName: 'Quenoxa_Brochure.pdf',
-    fileSize: 2516582,
-    fileType: '.pdf',
-    extractedRecordCount: 48,
-    duplicateCount: 0,
-    missingValueCount: 5,
-    uploadDate: new Date('2026-10-26T17:12:00Z').toISOString(),
-    sheetNames: ['Company brochure'],
-    ocrApplied: true
-  },
-  {
-    id: 'sample-3',
-    fileName: 'Client_List.docx',
-    fileSize: 319488,
-    fileType: '.docx',
-    extractedRecordCount: 72,
-    duplicateCount: 1,
-    missingValueCount: 12,
-    uploadDate: new Date('2026-10-25T11:08:00Z').toISOString(),
-    sheetNames: ['Business contacts'],
-    ocrApplied: false
-  },
-  {
-    id: 'sample-4',
-    fileName: 'Scanned_Cards_Images.zip',
-    fileSize: 9122611,
-    fileType: '.zip',
-    extractedRecordCount: 36,
-    duplicateCount: 3,
-    missingValueCount: 9,
-    uploadDate: new Date('2026-10-24T16:20:00Z').toISOString(),
-    sheetNames: ['Scanned business cards'],
-    ocrApplied: true
-  },
-  {
-    id: 'sample-5',
-    fileName: 'Restaurant_Leads.xlsx',
-    fileSize: 41984,
-    fileType: '.xlsx',
-    extractedRecordCount: 64,
-    duplicateCount: 0,
-    missingValueCount: 18,
-    uploadDate: new Date('2026-10-22T09:15:00Z').toISOString(),
-    sheetNames: ['Restaurants'],
-    ocrApplied: false
-  }
-];
-
 export const UploadDocumentsView: React.FC<UploadDocumentsViewProps> = ({
   onNavigate,
   onRefreshMetrics
@@ -368,7 +304,7 @@ export const UploadDocumentsView: React.FC<UploadDocumentsViewProps> = ({
             ref={fileInputRef}
             type="file"
             multiple
-            accept=".xlsx,.xls,.csv,.pdf,.docx,.txt,.png,.jpg,.jpeg,.zip"
+            accept=".xlsx,.xls,.csv,.xml,.pdf,.docx,.txt,.png,.jpg,.jpeg,.zip"
             className="hidden"
             onChange={(e) => e.target.files && handleFiles(e.target.files)}
           />
@@ -395,6 +331,10 @@ export const UploadDocumentsView: React.FC<UploadDocumentsViewProps> = ({
             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white text-emerald-700 border border-emerald-200 shadow-2xs flex items-center space-x-1">
               <span className="w-3.5 h-3.5 rounded bg-emerald-600 text-white flex items-center justify-center text-[8px] font-black">X</span>
               <span>XLS</span>
+            </span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white text-purple-700 border border-purple-200 shadow-2xs flex items-center space-x-1">
+              <span className="w-3.5 h-3.5 rounded bg-purple-600 text-white flex items-center justify-center text-[8px] font-black">&lt;&gt;</span>
+              <span>XML</span>
             </span>
             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white text-blue-700 border border-blue-200 shadow-2xs flex items-center space-x-1">
               <FileSpreadsheet className="w-3 h-3 text-blue-600" />
@@ -783,10 +723,10 @@ export const UploadDocumentsView: React.FC<UploadDocumentsViewProps> = ({
 
                         <button
                           onClick={() => handleDeleteFile(file.id)}
-                          className="p-1 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 transition-colors cursor-pointer"
-                          title="Actions menu"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                          title="Delete file & extracted records"
                         >
-                          <MoreVertical className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>

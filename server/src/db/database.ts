@@ -549,8 +549,6 @@ export function initDatabase() {
   seedDefaultUsersAndTeams();
   // Seed default 14-Industry Catalogue if empty
   seedIndustryCatalogue();
-  // Seed live real-time documents and 335 extracted records if missing
-  seedRealInitialFilesAndRecords(db);
   // Ensure real uploaded/extracted records are synced as live leads
   syncGivenDataOnly();
 }

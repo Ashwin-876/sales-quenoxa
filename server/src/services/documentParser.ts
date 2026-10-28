@@ -92,7 +92,7 @@ export class DocumentParser {
   ): Promise<ParseResult> {
     const ext = path.extname(originalName).toLowerCase();
 
-    if (ext === '.xlsx' || ext === '.xls' || ext === '.csv') {
+    if (ext === '.xlsx' || ext === '.xls' || ext === '.csv' || ext === '.xml') {
       return this.parseSpreadsheet(filePath, originalName, fileId, options);
     } else if (ext === '.pdf') {
       return this.parsePdf(filePath, originalName, fileId, options);
@@ -103,7 +103,7 @@ export class DocumentParser {
     } else if (['.png', '.jpg', '.jpeg', '.tiff', '.bmp'].includes(ext)) {
       return this.parseImageOcr(filePath, originalName, fileId);
     } else {
-      throw new Error(`Unsupported file type: ${ext}. Supported: XLSX, XLS, CSV, PDF, DOCX, TXT, images with OCR.`);
+      throw new Error(`Unsupported file type: ${ext}. Supported: XLSX, XLS, CSV, XML, PDF, DOCX, TXT, images with OCR.`);
     }
   }
 

@@ -225,6 +225,12 @@ apiRouter.post('/files/upload', upload.array('files', 10), async (req: Request, 
     }
   }
 
+  try {
+    syncGivenDataOnly();
+  } catch (syncErr) {
+    console.error('Failed to sync newly uploaded records to leads:', syncErr);
+  }
+
   return res.json({ success: true, files: results });
 });
 
@@ -253,6 +259,7 @@ apiRouter.get('/files', (req: Request, res: Response) => {
 
 apiRouter.delete('/files/:id', (req: Request, res: Response) => {
   const fileId = req.params.id;
+  db.prepare('DELETE FROM leads WHERE extracted_record_id IN (SELECT id FROM extracted_records WHERE file_id = ?)').run(fileId);
   db.prepare('DELETE FROM extracted_records WHERE file_id = ?').run(fileId);
   db.prepare('DELETE FROM uploaded_files WHERE id = ?').run(fileId);
   logAudit('DELETE_FILE', 'uploaded_files', fileId as string);
