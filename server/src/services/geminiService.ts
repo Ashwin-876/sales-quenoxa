@@ -695,7 +695,7 @@ ${parsed.closingStatement}`;
     const recommendedService = `Our team specializes in ${service.name}, delivering high-reliability enterprise solutions tailored to ${record.industry}.`;
     const benefits = service.expectedBenefits.slice(0, 3);
     const closing = `Best regards,`;
-    const signature = `Ashwin Kumar\nDirector of Strategic Solutions\nQuenoxa Global Technologies\nhttps://quenoxa.com | sales@quenoxa.com`;
+    const signature = `Ashwin Kumar\nDirector of Strategic Solutions\nQuenoxa Global Technologies\nhttps://quenoxa.com | sales@quenoxa.com\nCompany Profile: https://share.google/4lPPmeoqGkxA3m97N`;
 
     const body = `${greeting}
 

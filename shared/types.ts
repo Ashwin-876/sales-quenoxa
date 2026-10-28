@@ -691,6 +691,7 @@ export interface ProviderSettings {
   website: string;
   email: string;
   phone: string;
+  companyProfileUrl?: string;
 }
 
 export interface MarketingRecommendedService {

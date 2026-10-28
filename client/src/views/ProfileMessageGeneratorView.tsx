@@ -178,7 +178,8 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
     senderName: 'Ashwin',
     website: 'https://www.quenoxa.com',
     email: 'info@quenoxa.com',
-    phone: '6369480281'
+    phone: '6369480281',
+    companyProfileUrl: 'https://share.google/4lPPmeoqGkxA3m97N'
   });
   const [showProviderModal, setShowProviderModal] = useState(false);
   const [editingProvider, setEditingProvider] = useState<ProviderSettings>(provider);
@@ -622,7 +623,7 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
     const fileContent = `================================================================================
 QUENOXA GLOBAL TECHNOLOGIES — CUSTOMER MARKETING DOSSIER
 Generated: ${new Date().toLocaleString()}
-Service Provider: ${provider.companyName} (${provider.senderName} | ${provider.phone} | ${provider.website})
+Service Provider: ${provider.companyName} (${provider.senderName} | ${provider.phone} | ${provider.website} | Profile: ${provider.companyProfileUrl || 'https://share.google/4lPPmeoqGkxA3m97N'})
 ================================================================================
 
 TARGET CUSTOMER PROFILE:
@@ -1929,6 +1930,22 @@ https://www.quenoxa.com | info@quenoxa.com
                   onChange={(e) => setEditingProvider({ ...editingProvider, website: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Company Profile / Brochure Link (Mentioned in All Messages)
+                </label>
+                <input
+                  type="text"
+                  value={editingProvider.companyProfileUrl || ''}
+                  onChange={(e) => setEditingProvider({ ...editingProvider, companyProfileUrl: e.target.value })}
+                  placeholder="https://share.google/4lPPmeoqGkxA3m97N"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Included in all generated WhatsApp, Email, Intro, Pitch & Brochure messages.
+                </p>
               </div>
             </div>
 

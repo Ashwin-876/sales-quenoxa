@@ -18,7 +18,8 @@ export const DEFAULT_PROVIDER_SETTINGS: ProviderSettings = {
   senderName: 'Ashwin',
   website: 'https://www.quenoxa.com',
   email: 'info@quenoxa.com',
-  phone: '6369480281'
+  phone: '6369480281',
+  companyProfileUrl: 'https://share.google/4lPPmeoqGkxA3m97N'
 };
 
 // 16 Standard Services of Quenoxa Global Technologies
@@ -186,7 +187,8 @@ export class MarketingGeneratorService {
       senderName: settings.senderName?.trim() || current.senderName,
       website: settings.website?.trim() || current.website,
       email: settings.email?.trim() || current.email,
-      phone: settings.phone?.trim() || current.phone
+      phone: settings.phone?.trim() || current.phone,
+      companyProfileUrl: settings.companyProfileUrl?.trim() || current.companyProfileUrl || 'https://share.google/4lPPmeoqGkxA3m97N'
     };
     db.prepare(`
       INSERT OR REPLACE INTO system_settings (key, value)
@@ -509,6 +511,7 @@ export class MarketingGeneratorService {
     const pComp = provider.companyName || 'QUENOXA GLOBAL TECHNOLOGIES';
     const pWeb = provider.website || 'https://www.quenoxa.com';
     const pPhone = provider.phone || '6369480281';
+    const pProfile = provider.companyProfileUrl || 'https://share.google/4lPPmeoqGkxA3m97N';
 
     // Format service bullets
     const serviceBullets = recommendedServices.map((s, idx) => `${idx + 1}. *${s.name}*: ${s.benefit}`).join('\n');
@@ -519,28 +522,28 @@ export class MarketingGeneratorService {
       const isPureTamil = lang === 'tamil';
 
       const introMsg = isPureTamil
-        ? `வணக்கம் ${cName} அவர்களே,\n\nநான் ${pComp} நிறுவனத்திலிருந்து ${pName} பேசுகிறேன். ${loc}-ல் செயல்பட்டு வரும் உங்கள் ${compName} நிறுவனத்தின் வளர்ச்சிப் பணிகளை அறிந்தோம்.\n\n${ind} துறையில் இயங்கும் வணிகங்களுக்குத் தேவையான இணையவழித் தீர்வுகள், மொபைல் செயலிகள் மற்றும் வணிக தானியங்கு அமைப்புகளை வழங்கி வருகிறோம். உங்களின் வணிக நடவடிக்கைகளை அடுத்த கட்டத்திற்கு எளிதாக முன்னெடுத்துச் செல்ல நாங்கள் எவ்வாறு உதவ முடியும் என்பதை சுருக்கமாகக் கலந்துரையாட விரும்புகிறோம்.\n\nநன்றி,\n${pName} | ${pComp}\nதொடர்புக்கு: ${pPhone}`
-        : `Vanakkam ${cName} sir/ma'am,\n\nNaan ${pComp}-la irundhu ${pName} connect panren. ${loc}-la irukura unga ${compName} growth track panni paathom.\n\n${ind} sector-ku thevaiyaana modern websites, customer applications, and business automation solutions naanga provide panrom. Unga business-la digital presence and customer reach increase panna nalla opportunities irukku.\n\nOru quick 5 mins discuss panna eppo convenient-a irukkum?\n\nRegards,\n${pName} | ${pComp}\nContact: ${pPhone}`;
+        ? `வணக்கம் ${cName} அவர்களே,\n\nநான் ${pComp} நிறுவனத்திலிருந்து ${pName} பேசுகிறேன். ${loc}-ல் செயல்பட்டு வரும் உங்கள் ${compName} நிறுவனத்தின் வளர்ச்சிப் பணிகளை அறிந்தோம்.\n\n${ind} துறையில் இயங்கும் வணிகங்களுக்குத் தேவையான இணையவழித் தீர்வுகள், மொபைல் செயலிகள் மற்றும் வணிக தானியங்கு அமைப்புகளை வழங்கி வருகிறோம். உங்களின் வணிக நடவடிக்கைகளை அடுத்த கட்டத்திற்கு எளிதாக முன்னெடுத்துச் செல்ல நாங்கள் எவ்வாறு உதவ முடியும் என்பதை சுருக்கமாகக் கலந்துரையாட விரும்புகிறோம்.\n\nஎங்களின் நிறுவன விவரக்குறிப்பு (Company Profile): ${pProfile}\n\nநன்றி,\n${pName} | ${pComp}\nதொடர்புக்கு: ${pPhone} | ${pWeb}`
+        : `Vanakkam ${cName} sir/ma'am,\n\nNaan ${pComp}-la irundhu ${pName} connect panren. ${loc}-la irukura unga ${compName} growth track panni paathom.\n\n${ind} sector-ku thevaiyaana modern websites, customer applications, and business automation solutions naanga provide panrom. Unga business-la digital presence and customer reach increase panna nalla opportunities irukku.\n\nCompany Profile link: ${pProfile}\n\nOru quick 5 mins discuss panna eppo convenient-a irukkum?\n\nRegards,\n${pName} | ${pComp}\nContact: ${pPhone} | ${pProfile}`;
 
       const pitchMsg = isPureTamil
-        ? `அன்புள்ள ${cName} அவர்களே,\n\n${compName} நிறுவனத்தின் ${ind} வணிகச் செயல்பாடுகளை மேலும் எளிமையாக்கவும், வாடிக்கையாளர் தொடர்பை வலுப்படுத்தவும் ${pComp} வழங்கும் முக்கிய சேவைகள்:\n\n${serviceBullets}\n\nஇவை மூலம் உங்கள் நேரத்தையும், தேவையற்ற கூடுதல் பணிச் சுமைகளையும் மிச்சப்படுத்தி, சீரான வணிக வளர்ச்சியைப் பெற இயலும்.\n\nஇது குறித்து ஒரு சிறிய விளக்கம் பெற விரும்புகிறீர்களா?\n\nநன்றி,\n${pName}\n${pWeb}`
-        : `Hi ${cName} sir/ma'am,\n\nUnga ${compName} business-ku helpful-a irukura key services from ${pComp}:\n\n${serviceBullets}\n\nIdhan moolama manual efforts kuranju, direct customer inquiries & daily operations romba smooth-a maintain panna mudiyum.\n\nIdha pathi detail-a oru 5 mins call-la share panlama?\n\nThanks,\n${pName}\n${pWeb}`;
+        ? `அன்புள்ள ${cName} அவர்களே,\n\n${compName} நிறுவனத்தின் ${ind} வணிகச் செயல்பாடுகளை மேலும் எளிமையாக்கவும், வாடிக்கையாளர் தொடர்பை வலுப்படுத்தவும் ${pComp} வழங்கும் முக்கிய சேவைகள்:\n\n${serviceBullets}\n\nஇவை மூலம் உங்கள் நேரத்தையும், தேவையற்ற கூடுதல் பணிச் சுமைகளையும் மிச்சப்படுத்தி, சீரான வணிக வளர்ச்சியைப் பெற இயலும்.\n\nநிறுவன விவரக்குறிப்பு (Company Profile): ${pProfile}\n\nஇது குறித்து ஒரு சிறிய விளக்கம் பெற விரும்புகிறீர்களா?\n\nநன்றி,\n${pName}\n${pWeb}`
+        : `Hi ${cName} sir/ma'am,\n\nUnga ${compName} business-ku helpful-a irukura key services from ${pComp}:\n\n${serviceBullets}\n\nIdhan moolama manual efforts kuranju, direct customer inquiries & daily operations romba smooth-a maintain panna mudiyum.\n\nReview our Company Profile here: ${pProfile}\n\nIdha pathi detail-a oru 5 mins call-la share panlama?\n\nThanks,\n${pName}\n${pWeb} | Profile: ${pProfile}`;
 
       const brochureMsg = isPureTamil
-        ? `வணக்கம் ${cName} அவர்களே,\n\n${pComp} நிறுவனத்தின் சேவைகள், முந்தைய திட்டங்கள் மற்றும் வாடிக்கையாளர் நன்மைகளைக் கொண்ட எங்களின் அதிகாரப்பூர்வ அறிமுகக் கையேட்டை (Brochure) தங்களின் பார்வைக்கு அனுப்பியுள்ளோம்.\n\nதங்கள் ஓய்வான நேரத்தில் இதைப் பார்வையிட்டு, தங்களின் மேலான கருத்துக்களைத் தெரிவிக்க வேண்டுகிறோம்.\n\nகையேட்டைப் பார்க்க: ${pWeb}\n\nநன்றி,\n${pName}`
-        : `Hi ${cName} sir/ma'am,\n\n${pComp}-oda official company brochure and client work profile-ai unga review-kaga share panrom. Ungaloda ${compName}-ku thagundha modern tech solutions idhula detail-a irukku.\n\nFree time-la review panni unga thoughts sollunga:\nBrochure link: ${pWeb}\n\nRegards,\n${pName} | ${pPhone}`;
+        ? `வணக்கம் ${cName} அவர்களே,\n\n${pComp} நிறுவனத்தின் சேவைகள், முந்தைய திட்டங்கள் மற்றும் வாடிக்கையாளர் நன்மைகளைக் கொண்ட எங்களின் அதிகாரப்பூர்வ அறிமுகக் கையேட்டை (Brochure & Company Profile) தங்களின் பார்வைக்கு அனுப்பியுள்ளோம்.\n\nதங்கள் ஓய்வான நேரத்தில் இதைப் பார்வையிட்டு, தங்களின் மேலான கருத்துக்களைத் தெரிவிக்க வேண்டுகிறோம்.\n\n📌 Company Profile & Brochure: ${pProfile}\nஇணையதளம்: ${pWeb}\n\nநன்றி,\n${pName}`
+        : `Hi ${cName} sir/ma'am,\n\n${pComp}-oda official company brochure and client work profile-ai unga review-kaga share panrom. Ungaloda ${compName}-ku thagundha modern tech solutions idhula detail-a irukku.\n\n📌 Official Company Profile: ${pProfile}\n\nFree time-la review panni unga thoughts sollunga.\n\nRegards,\n${pName} | ${pPhone}`;
 
       const followupMsg = isPureTamil
-        ? `வணக்கம் ${cName} அவர்களே,\n\nஎங்களின் முந்தைய செய்தி தங்களுக்குக் கிடைத்திருக்கும் என நம்புகிறேன். ${compName} நிறுவனத்தின் ${ind} செயல்பாடுகளுக்கான எங்களின் தொழில்நுட்பத் தீர்வுகள் குறித்து தங்களின் கருத்தை அறிய ஆவலாக உள்ளோம்.\n\nதங்களுக்கு சௌகரியமான ஒரு நாளில் ஒரு சிறிய தொலைபேசி அழைப்பு அல்லது இணைய சந்திப்பை மேற்கொள்ளலாமா?\n\nநன்றி,\n${pName}`
-        : `Hi ${cName} sir/ma'am,\n\nHope you are having a productive week. Unga ${compName} business-kaga share panna digital solutions review panna mudinjidha?\n\nUnga convenient time-la oru quick phone call or meeting schedule panlama?\n\nBest regards,\n${pName} | ${pComp}`;
+        ? `வணக்கம் ${cName} அவர்களே,\n\nஎங்களின் முந்தைய செய்தி தங்களுக்குக் கிடைத்திருக்கும் என நம்புகிறேன். ${compName} நிறுவனத்தின் ${ind} செயல்பாடுகளுக்கான எங்களின் தொழில்நுட்பத் தீர்வுகள் குறித்து தங்களின் கருத்தை அறிய ஆவலாக உள்ளோம்.\n\nஎங்களின் நிறுவன விவரக்குறிப்பு (Company Profile): ${pProfile}\n\nதங்களுக்கு சௌகரியமான ஒரு நாளில் ஒரு சிறிய தொலைபேசி அழைப்பு அல்லது இணைய சந்திப்பை மேற்கொள்ளலாமா?\n\nநன்றி,\n${pName}`
+        : `Hi ${cName} sir/ma'am,\n\nHope you are having a productive week. Unga ${compName} business-kaga share panna digital solutions & credentials review panna mudinjidha?\n\nCompany Profile link: ${pProfile}\n\nUnga convenient time-la oru quick phone call or meeting schedule panlama?\n\nBest regards,\n${pName} | ${pComp}`;
 
       const emailSubject = isPureTamil
         ? `${compName} நிறுவனத்திற்கான டிஜிட்டல் வளர்ச்சித் தீர்வுகள் — ${pComp}`
         : `Digital Growth & Automation for ${compName} — Quenoxa Global Technologies`;
 
-      const emailBody = `Respected ${cName}${desig},\n\n${greeting}.\n\nI am ${pName} representing ${pComp}. We have been following the commendable work done by ${compName} in ${loc}.\n\nSpecializing in high-performance digital systems for the ${ind} industry, we help leading businesses streamline everyday operations, engage customers through modern channels, and build measurable market visibility.\n\nKey areas where we can support ${compName}:\n\n${serviceListCompact}\n\nWe would welcome an opportunity for a brief 10-minute introductory phone call or Google Meet at your convenience.\n\nYou may also review our enterprise credentials at ${pWeb}.\n\nWarm regards,\n\n${pName}\n${pComp}\nWebsite: ${pWeb}\nDirect: ${pPhone}\nEmail: ${provider.email}`;
+      const emailBody = `Respected ${cName}${desig},\n\n${greeting}.\n\nI am ${pName} representing ${pComp}. We have been following the commendable work done by ${compName} in ${loc}.\n\nSpecializing in high-performance digital systems for the ${ind} industry, we help leading businesses streamline everyday operations, engage customers through modern channels, and build measurable market visibility.\n\nKey areas where we can support ${compName}:\n\n${serviceListCompact}\n\nWe would welcome an opportunity for a brief 10-minute introductory phone call or Google Meet at your convenience.\n\nYou may also review our enterprise credentials & Company Profile at: ${pProfile}\n\nWarm regards,\n\n${pName}\n${pComp}\nWebsite: ${pWeb}\nCompany Profile: ${pProfile}\nDirect: ${pPhone}\nEmail: ${provider.email}`;
 
-      const shortWa = `Vanakkam ${cName} sir! ${pName} from ${pComp}. We help ${ind} businesses in ${loc} like ${compName} automate customer workflows & scale digital visibility. Would you be open for a brief 5-min intro call this week? View profile: ${pWeb}`;
+      const shortWa = `Vanakkam ${cName} sir! ${pName} from ${pComp}. We help ${ind} businesses in ${loc} like ${compName} automate customer workflows & scale digital visibility. Company Profile: ${pProfile} — Would you be open for a brief 5-min intro call this week?`;
 
       return {
         customerName: cName,
@@ -574,23 +577,23 @@ export class MarketingGeneratorService {
       introGreeting = `Dear ${cName}${desig},\n\n${greeting}.`;
     }
 
-    const introMsg = `${introGreeting}\n\nMy name is ${pName} reaching out from ${pComp}. We have been following the steady growth of ${compName} in ${loc}.\n\nWe specialize in engineering modern digital platforms, custom applications, and automated workflows specifically tailored for businesses in the ${ind} sector.\n\nOur objective in connecting is to explore practical ways we can support ${compName}'s online presence and day-to-day operations without unnecessary complexity.\n\nWould you be open to a brief 5-minute introductory conversation at a convenient time this week?\n\nBest regards,\n${pName}\n${pComp}\nContact: ${pPhone} | ${pWeb}`;
+    const introMsg = `${introGreeting}\n\nMy name is ${pName} reaching out from ${pComp}. We have been following the steady growth of ${compName} in ${loc}.\n\nWe specialize in engineering modern digital platforms, custom applications, and automated workflows specifically tailored for businesses in the ${ind} sector.\n\nOur objective in connecting is to explore practical ways we can support ${compName}'s online presence and day-to-day operations without unnecessary complexity.\n\nYou can review our official company profile & track record here: ${pProfile}\n\nWould you be open to a brief 5-minute introductory conversation at a convenient time this week?\n\nBest regards,\n${pName}\n${pComp}\nContact: ${pPhone} | ${pWeb}\nCompany Profile: ${pProfile}`;
 
-    const pitchMsg = `${greeting} ${cName},\n\nAs ${compName} continues to expand in the ${ind} space, maintaining seamless customer interactions while keeping administrative overhead low is essential.\n\nBased on the typical operational priorities of businesses like ${compName}, here are specific solutions from ${pComp} engineered to deliver clear outcomes:\n\n${serviceBullets}\n\nOur focus is always on practical outcomes: stronger digital credibility, smoother daily workflow coordination, and dependable inquiry capture without making unrealistic promises.\n\nWould you like me to share a brief 2-page implementation outline tailored for ${compName}?\n\nSincerely,\n${pName} | ${pComp}\n${pWeb}`;
+    const pitchMsg = `${greeting} ${cName},\n\nAs ${compName} continues to expand in the ${ind} space, maintaining seamless customer interactions while keeping administrative overhead low is essential.\n\nBased on the typical operational priorities of businesses like ${compName}, here are specific solutions from ${pComp} engineered to deliver clear outcomes:\n\n${serviceBullets}\n\nOur focus is always on practical outcomes: stronger digital credibility, smoother daily workflow coordination, and dependable inquiry capture without making unrealistic promises.\n\nWould you like me to share a brief 2-page implementation outline tailored for ${compName}? You can also explore our Company Profile & portfolio here: ${pProfile}\n\nSincerely,\n${pName} | ${pComp}\nWebsite: ${pWeb}\nCompany Profile: ${pProfile}`;
 
-    const brochureMsg = `${greeting} ${cName},\n\nThank you for your time. As requested, I am pleased to share our official ${pComp} Company Profile and Services Brochure.\n\nIt outlines our technical capabilities, client implementations across the ${ind} sector, and how our engineering team helps businesses like ${compName} deploy modern digital tools with confidence.\n\nYou can review our credentials online at: ${pWeb}\n\nPlease feel free to review it at your convenience. I would be happy to answer any questions you may have.\n\nRespectfully,\n${pName}\n${pComp} | Direct: ${pPhone}`;
+    const brochureMsg = `${greeting} ${cName},\n\nThank you for your time. As requested, I am pleased to share our official ${pComp} Company Profile and Services Brochure.\n\nIt outlines our technical capabilities, client implementations across the ${ind} sector, and how our engineering team helps businesses like ${compName} deploy modern digital tools with confidence.\n\n📌 Company Profile & Portfolio: ${pProfile}\nOfficial Website: ${pWeb}\n\nPlease feel free to review it at your convenience. I would be happy to answer any questions you may have.\n\nRespectfully,\n${pName}\n${pComp} | Direct: ${pPhone}`;
 
-    const followupMsg = `${greeting} ${cName},\n\nI hope you are having a productive week.\n\nI am following up on our earlier communication regarding tailored digital and automation capabilities for ${compName}.\n\nI understand your schedule may be demanding. When you have a brief moment, I would welcome the opportunity to connect for 5 to 10 minutes to understand your current technological priorities for the upcoming quarter.\n\nPlease let me know what day and time works best for your schedule.\n\nWarm regards,\n${pName}\n${pComp}\nPhone: ${pPhone}`;
+    const followupMsg = `${greeting} ${cName},\n\nI hope you are having a productive week.\n\nI am following up on our earlier communication regarding tailored digital and automation capabilities for ${compName}.\n\nI understand your schedule may be demanding. In case you haven't had a chance to view our credentials, our official Company Profile is available here: ${pProfile}\n\nPlease let me know what day and time works best for your schedule to connect for 5 to 10 minutes.\n\nWarm regards,\n${pName}\n${pComp}\nPhone: ${pPhone}\nCompany Profile: ${pProfile}`;
 
     const emailSubject = tone === 'Short and Direct'
       ? `Digital solutions for ${compName} — Quenoxa`
       : `Exploring Digital Capabilities & Workflow Automation for ${compName}`;
 
-    const emailBody = `Dear ${cName}${desig},\n\n${greeting}.\n\nMy name is ${pName}, and I am reaching out from ${pComp}. We have noted ${compName}'s reputable standing in ${loc}.\n\nWe work with forward-thinking enterprises in the ${ind} sector to engineer dependable digital systems that drive visibility and eliminate manual friction. Specifically for ${compName}, we see strong synergy across these areas:\n\n${serviceListCompact}\n\nRather than presenting generic pitches, we design every implementation around your specific business workflow, ensuring clear operational returns, faster customer turnaround, and enterprise-grade reliability.\n\nCould we schedule a brief 10-minute introductory phone call or virtual meeting this Thursday or Friday?\n\nThank you for your consideration, and I look forward to hearing your thoughts.\n\nWarm regards,\n\n${pName}\nSenior Solutions Specialist\n${pComp}\nWebsite: ${pWeb}\nDirect: ${pPhone}\nEmail: ${provider.email}`;
+    const emailBody = `Dear ${cName}${desig},\n\n${greeting}.\n\nMy name is ${pName}, and I am reaching out from ${pComp}. We have noted ${compName}'s reputable standing in ${loc}.\n\nWe work with forward-thinking enterprises in the ${ind} sector to engineer dependable digital systems that drive visibility and eliminate manual friction. Specifically for ${compName}, we see strong synergy across these areas:\n\n${serviceListCompact}\n\nRather than presenting generic pitches, we design every implementation around your specific business workflow, ensuring clear operational returns, faster customer turnaround, and enterprise-grade reliability.\n\nCould we schedule a brief 10-minute introductory phone call or virtual meeting this Thursday or Friday?\n\nYou can review our full company profile and credentials here: ${pProfile}\n\nThank you for your consideration, and I look forward to hearing your thoughts.\n\nWarm regards,\n\n${pName}\nSenior Solutions Specialist\n${pComp}\nWebsite: ${pWeb}\nCompany Profile: ${pProfile}\nDirect: ${pPhone}\nEmail: ${provider.email}`;
 
     const shortWa = tone === 'Short and Direct'
-      ? `${greeting} ${cName}! ${pName} from ${pComp}. We build custom digital systems & automation for ${ind} companies like ${compName}. Open for a brief 5-min intro call this week? Profile: ${pWeb}`
-      : `${greeting} ${cName}! This is ${pName} from ${pComp}. We noticed ${compName}'s work in ${loc} and have helped similar ${ind} businesses streamline customer booking & digital presence. Would you be open to a quick 5-min chat this week? Info: ${pWeb}`;
+      ? `${greeting} ${cName}! ${pName} from ${pComp}. We build custom digital systems & automation for ${ind} companies like ${compName}. Review our Company Profile: ${pProfile} — Open for a brief 5-min intro call this week?`
+      : `${greeting} ${cName}! This is ${pName} from ${pComp}. We noticed ${compName}'s work in ${loc} and have helped similar ${ind} businesses streamline customer booking & digital presence. Company Profile: ${pProfile} — Would you be open to a quick 5-min chat this week?`;
 
     return {
       customerName: cName,
@@ -645,6 +648,7 @@ Generate a comprehensive set of personalized, professional marketing messages ta
 - Website: ${provider.website}
 - Phone: ${provider.phone}
 - Email: ${provider.email}
+- Company Profile Link: ${provider.companyProfileUrl || 'https://share.google/4lPPmeoqGkxA3m97N'}
 
 ### TARGET CUSTOMER PROFILE:
 - Customer / Contact Person: ${profile.customerName || 'Business Owner'}
@@ -666,8 +670,9 @@ ${recommendedServices.map((s, idx) => `${idx + 1}. ${s.name}: ${s.benefit} (Why:
 1. NEVER confuse ${provider.companyName} (the service provider) with ${profile.companyName} (the customer).
 2. NEVER invent facts, fake past interactions, or claim previous calls unless explicitly supplied in requirements.
 3. NEVER make unrealistic revenue or 100% guarantee promises. Emphasize practical business outcomes: stronger online visibility, automated coordination, simpler operations, and dependable customer acquisition.
-4. Adhere strictly to the requested tone (${profile.tone}) and language (${profile.language}). If Tamil/Thanglish is requested, formulate fluent, culturally natural phrasing.
-5. Return strictly valid JSON matching this schema:
+4. MANDATORY: You MUST explicitly include the official Quenoxa Company Profile link (${provider.companyProfileUrl || 'https://share.google/4lPPmeoqGkxA3m97N'}) across ALL messages — including WhatsApp messages (short WhatsApp, brochure sharing), Email messages (body & signature), Introduction, and Service Pitch — so the recipient can review our company profile.
+5. Adhere strictly to the requested tone (${profile.tone}) and language (${profile.language}). If Tamil/Thanglish is requested, formulate fluent, culturally natural phrasing.
+6. Return strictly valid JSON matching this schema:
 {
   "introductionMessage": "String",
   "servicePitchMessage": "String",
