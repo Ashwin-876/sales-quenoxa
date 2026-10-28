@@ -1359,11 +1359,21 @@ export function syncGivenDataOnly() {
   db.prepare("DELETE FROM leads WHERE customer_name LIKE 'Client %' OR customer_name LIKE 'Prospect %' OR customer_name LIKE 'Past %' OR extracted_record_id IS NULL").run();
   db.prepare("DELETE FROM proposals WHERE title LIKE '%Contract Package' OR title LIKE '%Historical%'").run();
 
-  // 2. Fetch all real extracted records
+  // 2. CRITICAL: Only move records to CRM when they are accepted!
+  // Remove any unaccepted records from CRM leads table (e.g. pending or rejected)
+  db.prepare(`
+    DELETE FROM leads 
+    WHERE extracted_record_id IS NOT NULL 
+      AND extracted_record_id NOT IN (
+        SELECT id FROM extracted_records WHERE crm_status = 'accepted' OR status = 'in_crm'
+      )
+  `).run();
+
+  // 3. Fetch all real extracted records
   const records = db.prepare('SELECT * FROM extracted_records').all() as any[];
   if (!records.length) return;
 
-  // 3. Fetch all real customer analyses
+  // 4. Fetch all real customer analyses
   const analyses = db.prepare('SELECT record_id, recommended_services FROM customer_analyses').all() as any[];
   const analysisMap = new Map<string, any[]>();
   for (const a of analyses) {
@@ -1377,7 +1387,7 @@ export function syncGivenDataOnly() {
     }
   }
 
-  // 4. Ensure each real extracted record has a corresponding lead in the CRM
+  // 5. Ensure each ACCEPTED extracted record has a corresponding lead in the CRM
   const insertLead = db.prepare(`
     INSERT INTO leads (
       id, extracted_record_id, customer_name, company_name, email, phone,
@@ -1389,8 +1399,11 @@ export function syncGivenDataOnly() {
   const existingLeads = db.prepare('SELECT extracted_record_id FROM leads WHERE extracted_record_id IS NOT NULL').all() as { extracted_record_id: string }[];
   const existingSet = new Set(existingLeads.map(l => l.extracted_record_id));
 
+  // Only sync records where crm_status is 'accepted' or status is 'in_crm'
+  const acceptedRecords = records.filter(rec => rec.crm_status === 'accepted' || rec.status === 'in_crm');
+
   db.transaction(() => {
-    for (const rec of records) {
+    for (const rec of acceptedRecords) {
       if (existingSet.has(rec.id)) continue;
 
       const recAnalyses = analysisMap.get(rec.id);
@@ -1398,7 +1411,7 @@ export function syncGivenDataOnly() {
       const topService = recAnalyses && recAnalyses[0] ? recAnalyses[0].serviceName : null;
 
       const leadId = uuidv4();
-      const status = isAnalyzed ? 'Analyzed' : 'New Lead';
+      const status = 'Accepted';
       const pipelineValue = isAnalyzed ? 120000 : 45000;
       const analysisStatus = isAnalyzed ? 'Analysed' : 'New';
       const priority = isAnalyzed ? 'High' : 'Medium';
@@ -1421,7 +1434,7 @@ export function syncGivenDataOnly() {
         rec.digital_presence || null,
         analysisStatus,
         priority,
-        'Pending',
+        'Accepted',
         dateStr,
         dateStr
       );

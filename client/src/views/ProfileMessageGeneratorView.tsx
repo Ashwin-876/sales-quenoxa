@@ -263,9 +263,11 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
         });
       }
 
-      // 2. Extracted Records from uploaded customer files in CRM / Data Explorer
+      // 2. Extracted Records from uploaded customer files in CRM / Data Explorer (ONLY ACCEPTED)
       if (recs && recs.records && recs.records.length > 0) {
         recs.records.forEach((r: ExtractedRecord, idx: number) => {
+          // Requirement: ONLY move to CRM when accepted
+          if (r.crmStatus !== 'accepted' && r.status !== 'in_crm') return;
           if (r.crmStatus === 'rejected' || r.rejectionReason) return;
           const cName = r.companyName || r.businessName;
           if (!cName) return;
@@ -519,9 +521,11 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
         });
       }
 
-      // 2. Extracted Records from Data Explorer
+      // 2. Extracted Records from Data Explorer (ONLY ACCEPTED)
       if (recs && recs.records && recs.records.length > 0) {
         recs.records.forEach((r: ExtractedRecord, idx: number) => {
+          // Requirement: ONLY move to CRM when accepted
+          if (r.crmStatus !== 'accepted' && r.status !== 'in_crm') return;
           if (r.crmStatus === 'rejected' || r.rejectionReason) return;
           const cName = r.companyName || r.businessName;
           if (!cName) return;

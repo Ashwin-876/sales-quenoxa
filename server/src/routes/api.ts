@@ -702,18 +702,9 @@ apiRouter.post('/records/:id/reject', (req: Request, res: Response) => {
         WHERE id = ?
       `).run(rejectionReason, id);
 
-      // 2. If lead already exists in CRM leads table, update its outcome to Rejected / Lost
+      // 2. If lead exists in CRM leads table, remove it so rejected leads do not appear in CRM
       const existingLead = db.prepare('SELECT id FROM leads WHERE extracted_record_id = ?').get(id) as any;
-      if (existingLead) {
-        db.prepare(`
-          UPDATE leads
-          SET lead_status = 'Lost',
-              outcome = 'Rejected',
-              rejection_reason = ?,
-              updated_at = datetime('now')
-          WHERE id = ?
-        `).run(rejectionReason, existingLead.id);
-      }
+      db.prepare('DELETE FROM leads WHERE extracted_record_id = ?').run(id);
 
       // 3. Save full customer details into rejected_leads_history
       db.prepare(`
@@ -1436,24 +1427,36 @@ apiRouter.post('/outreach/email-send', (req: Request, res: Response) => {
 // ==============================================================================
 apiRouter.get('/leads', (req: Request, res: Response) => {
   const { stage, search, assignedTo } = req.query;
-  let query = 'SELECT * FROM leads WHERE 1=1';
+  // Only return leads that were explicitly accepted into CRM
+  let query = `
+    SELECT l.* FROM leads l
+    LEFT JOIN extracted_records er ON l.extracted_record_id = er.id
+    WHERE (
+      l.extracted_record_id IS NULL 
+      OR er.crm_status = 'accepted' 
+      OR er.status = 'in_crm'
+      OR l.lead_status = 'Accepted'
+      OR l.outcome = 'Accepted'
+    )
+    AND (er.crm_status IS NULL OR er.crm_status != 'rejected')
+  `;
   const params: any[] = [];
 
   if (stage && stage !== 'All') {
-    query += ' AND lead_status = ?';
+    query += ' AND l.lead_status = ?';
     params.push(stage);
   }
   if (assignedTo) {
-    query += ' AND assigned_employee_id = ?';
+    query += ' AND l.assigned_employee_id = ?';
     params.push(assignedTo);
   }
   if (search) {
-    query += ' AND (customer_name LIKE ? OR company_name LIKE ? OR email LIKE ? OR phone LIKE ?)';
+    query += ' AND (l.customer_name LIKE ? OR l.company_name LIKE ? OR l.email LIKE ? OR l.phone LIKE ?)';
     const s = `%${search}%`;
     params.push(s, s, s, s);
   }
 
-  query += ' ORDER BY created_at DESC';
+  query += ' ORDER BY l.created_at DESC';
   const rows = db.prepare(query).all(...params) as any[];
 
   const leads: Lead[] = rows.map(r => {
