@@ -217,7 +217,7 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
   const [outputs, setOutputs] = useState<GeneratedMarketingOutputs | null>(null);
   const [activeOutputTab, setActiveOutputTab] = useState<
     'intro' | 'pitch' | 'brochure' | 'followup' | 'email' | 'whatsapp' | 'services' | 'greeting'
-  >('intro');
+  >('whatsapp');
   const [editableContent, setEditableContent] = useState<string>('');
   const [emailSubject, setEmailSubject] = useState<string>('');
   const [copied, setCopied] = useState(false);
@@ -312,7 +312,7 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
           id: r.id || `crm-rec-${idx}`,
           companyName: r.companyName || r.businessName || `Prospect #${idx + 1}`,
           customerName: r.contactPerson || r.customerName || 'Business Owner',
-          phone: r.contactNumber || '+91 98765 00000',
+          phone: (r as any).phone || r.contactNumber || (r as any).mobile || '+91 98765 00000',
           email: r.email,
           industry: r.industry || 'Fitness and Gyms',
           designation: 'Managing Director',
@@ -341,7 +341,13 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
     if (selectedRecord) {
       setCustomerName(selectedRecord.contactPerson || selectedRecord.customerName || 'Business Owner');
       setCompanyName(selectedRecord.companyName || selectedRecord.businessName || 'Business');
-      setCustomerPhone(selectedRecord.contactNumber || '');
+      setCustomerPhone(
+        (selectedRecord as any).phone ||
+        selectedRecord.contactNumber ||
+        (selectedRecord as any).mobile ||
+        (selectedRecord as any).contact ||
+        ''
+      );
       if (selectedRecord.email) setCustomerEmail(selectedRecord.email);
       if (selectedRecord.industry) {
         const match = PREDEFINED_INDUSTRIES.find(i =>
@@ -456,6 +462,11 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
     try {
       const res = await api.generateMarketingMessages(profile, provider);
       setOutputs(res);
+      if (preferredChannel === 'WhatsApp') {
+        setActiveOutputTab('whatsapp');
+      } else if (preferredChannel === 'Email') {
+        setActiveOutputTab('email');
+      }
       api.getMarketingHistory().then(h => setHistory(h)).catch(() => {});
     } catch (err: any) {
       console.error('Customer generation failed:', err);
@@ -493,6 +504,11 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
     try {
       const res = await api.generateMarketingMessages(profile, provider);
       setOutputs(res);
+      if (preferredChannel === 'WhatsApp') {
+        setActiveOutputTab('whatsapp');
+      } else if (preferredChannel === 'Email') {
+        setActiveOutputTab('email');
+      }
       api.getMarketingHistory().then(h => setHistory(h)).catch(() => {});
       if (showFeedback) {
         setStatusMessage({
@@ -516,7 +532,7 @@ export const ProfileMessageGeneratorView: React.FC<ProfileMessageGeneratorViewPr
           id: r.id || `crm-rec-${idx}`,
           companyName: r.companyName || r.businessName || `Prospect #${idx + 1}`,
           customerName: r.contactPerson || r.customerName || 'Business Owner',
-          phone: r.contactNumber || '+91 98765 00000',
+          phone: (r as any).phone || r.contactNumber || (r as any).mobile || '+91 98765 00000',
           email: r.email,
           industry: r.industry || 'Fitness and Gyms',
           designation: 'Managing Director',
@@ -712,15 +728,68 @@ https://www.quenoxa.com | info@quenoxa.com
   const wordCount = editableContent.trim() ? editableContent.trim().split(/\s+/).length : 0;
   const charCount = editableContent.length;
 
-  // WhatsApp click-to-chat URL
+  // WhatsApp click-to-chat URL (always connects THIS exact message from the editor)
   const whatsappUrl = useMemo(() => {
-    const rawNum = customerPhone.replace(/[^0-9]/g, '');
-    const cleanNum = rawNum.startsWith('91') ? rawNum : `91${rawNum}`;
-    const textParam = encodeURIComponent(
-      activeOutputTab === 'whatsapp' ? editableContent : outputs?.whatsappShortMessage || editableContent
-    );
-    return `https://wa.me/${cleanNum}?text=${textParam}`;
-  }, [customerPhone, activeOutputTab, editableContent, outputs]);
+    let digits = (customerPhone || '').replace(/\D/g, '');
+    if (digits.length === 11 && digits.startsWith('0')) {
+      digits = `91${digits.slice(1)}`;
+    } else if (digits.length === 10) {
+      digits = `91${digits}`;
+    }
+    const messageToSend =
+      editableContent.trim() ||
+      (activeOutputTab === 'whatsapp' ? outputs?.whatsappShortMessage : '') ||
+      outputs?.introductionMessage ||
+      '';
+    const textParam = encodeURIComponent(messageToSend);
+    return digits
+      ? `https://api.whatsapp.com/send?phone=${digits}&text=${textParam}`
+      : `https://api.whatsapp.com/send?text=${textParam}`;
+  }, [customerPhone, editableContent, outputs, activeOutputTab]);
+
+  const handleOpenWhatsApp = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    let digits = (customerPhone || '').replace(/\D/g, '');
+    if (digits.length === 11 && digits.startsWith('0')) {
+      digits = `91${digits.slice(1)}`;
+    } else if (digits.length === 10) {
+      digits = `91${digits}`;
+    }
+
+    if (!digits || digits.length < 10) {
+      const phoneInput = window.prompt(
+        'Please enter the recipient customer WhatsApp phone number with country code (e.g. +91 98765 43210):',
+        customerPhone || '+91 98765 43210'
+      );
+      if (phoneInput && phoneInput.trim()) {
+        setCustomerPhone(phoneInput.trim());
+        digits = phoneInput.replace(/\D/g, '');
+        if (digits.length === 11 && digits.startsWith('0')) {
+          digits = `91${digits.slice(1)}`;
+        } else if (digits.length === 10) {
+          digits = `91${digits}`;
+        }
+      }
+    }
+
+    const messageToSend =
+      editableContent.trim() ||
+      (activeOutputTab === 'whatsapp' ? outputs?.whatsappShortMessage : '') ||
+      outputs?.introductionMessage ||
+      '';
+
+    if (!messageToSend) {
+      alert('Please enter or generate a message before opening WhatsApp.');
+      return;
+    }
+
+    const textParam = encodeURIComponent(messageToSend);
+    const targetUrl = digits
+      ? `https://api.whatsapp.com/send?phone=${digits}&text=${textParam}`
+      : `https://api.whatsapp.com/send?text=${textParam}`;
+
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
+  };
 
   // Gmail Web Composer direct URL for Chrome/Browser
   const gmailUrl = useMemo(() => {
@@ -1131,7 +1200,12 @@ https://www.quenoxa.com | info@quenoxa.com
               </label>
               <select
                 value={preferredChannel}
-                onChange={(e) => setPreferredChannel(e.target.value as MarketingChannel)}
+                onChange={(e) => {
+                  const ch = e.target.value as MarketingChannel;
+                  setPreferredChannel(ch);
+                  if (ch === 'WhatsApp') setActiveOutputTab('whatsapp');
+                  else if (ch === 'Email') setActiveOutputTab('email');
+                }}
                 className="w-full px-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               >
                 <option value="WhatsApp">WhatsApp</option>
@@ -1497,6 +1571,50 @@ https://www.quenoxa.com | info@quenoxa.com
                   </div>
                 )}
 
+                {/* If WhatsApp Tab: Show Recipient WhatsApp Number & Direct WhatsApp Outreach Banner */}
+                {activeOutputTab === 'whatsapp' && (
+                  <div className="space-y-2 p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center space-x-2 text-emerald-950 font-bold">
+                        <MessageSquare className="w-4 h-4 text-emerald-600" />
+                        <span>Direct WhatsApp Outreach (Click-to-Chat / Web & Mobile)</span>
+                      </div>
+                      <a
+                        href={whatsappUrl}
+                        onClick={handleOpenWhatsApp}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center space-x-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-2xs transition-colors cursor-pointer self-start sm:self-auto"
+                        title="Connects directly to recipient with this exact message in WhatsApp"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Connect & Open WhatsApp</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-1">
+                      <div className="sm:col-span-6 space-y-1">
+                        <label className="text-[10px] font-bold text-emerald-900 uppercase tracking-wider block">
+                          Recipient Customer WhatsApp Number (with Country Code)
+                        </label>
+                        <input
+                          type="tel"
+                          value={customerPhone}
+                          onChange={(e) => setCustomerPhone(e.target.value)}
+                          placeholder="+91 98765 43210"
+                          className="w-full px-3 py-1.5 text-xs bg-white border border-emerald-300 rounded-lg font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div className="sm:col-span-6 flex items-center">
+                        <p className="text-[11px] text-emerald-800 leading-snug">
+                          Formatted specifically for WhatsApp with bullets, bold text & crisp CTA. Clicking connects directly to customer.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Main Editable Textarea */}
                 <div className="relative">
                   <textarea
@@ -1578,13 +1696,27 @@ https://www.quenoxa.com | info@quenoxa.com
                       <span>Open in Gmail</span>
                     </a>
 
+                    {/* Quick Switch to WhatsApp Message if viewing another format */}
+                    {activeOutputTab !== 'whatsapp' && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveOutputTab('whatsapp')}
+                        className="px-3 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                        title="Switch to WhatsApp Short Message format"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>View WhatsApp Msg</span>
+                      </button>
+                    )}
+
                     {/* Direct WhatsApp Action Button */}
                     <a
                       href={whatsappUrl}
+                      onClick={handleOpenWhatsApp}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
-                      title="Open WhatsApp Click-to-Chat"
+                      title="Open WhatsApp with this exact message"
                     >
                       <MessageSquare className="w-3.5 h-3.5" />
                       <span>Open WhatsApp</span>
