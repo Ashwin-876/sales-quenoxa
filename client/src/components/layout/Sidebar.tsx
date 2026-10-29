@@ -22,6 +22,8 @@ import {
   Wand2
 } from 'lucide-react';
 
+import { AuthUser } from '../../../../shared/types.js';
+
 export type ViewKey =
   | 'dashboard'
   | 'upload-documents'
@@ -52,6 +54,8 @@ interface SidebarProps {
   onCloseMobile?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  currentUser?: AuthUser | null;
+  onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -61,7 +65,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen = false,
   onCloseMobile,
   isCollapsed = false,
-  onToggleCollapse
+  onToggleCollapse,
+  currentUser,
+  onLogout
 }) => {
   // Prevent background scrolling and handle Escape key on mobile
   useEffect(() => {
@@ -213,37 +219,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
   );
 
   // Reusable Profile Footer
-  const renderProfileFooter = (collapsed: boolean = false) => (
-    <div className="p-3 border-t border-emerald-900/40 bg-[#021812]/80 relative z-10 shrink-0">
-      <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between px-2'} py-1`}>
-        <div className={`flex items-center ${collapsed ? 'justify-center' : 'space-x-2.5'} min-w-0`}>
-          <div className="w-8 h-8 rounded-full overflow-hidden border border-emerald-600/50 shrink-0">
-            <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
-              alt="Ashwin Kumar"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          {!collapsed && (
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-white truncate">Ashwin Kumar</p>
-              <p className="text-[10px] text-emerald-300/70 truncate">Director / Admin</p>
+  const renderProfileFooter = (collapsed: boolean = false) => {
+    const displayName = currentUser?.fullName || 'Ashwin Kumar';
+    const displayRole = currentUser?.role || 'Director / Admin';
+    const avatar = currentUser?.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150';
+
+    return (
+      <div className="p-3 border-t border-emerald-900/40 bg-[#021812]/80 relative z-10 shrink-0">
+        <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between px-2'} py-1`}>
+          <div className={`flex items-center ${collapsed ? 'justify-center' : 'space-x-2.5'} min-w-0`}>
+            <div className="w-8 h-8 rounded-full overflow-hidden border border-emerald-600/50 shrink-0">
+              <img
+                src={avatar}
+                alt={displayName}
+                className="w-full h-full object-cover"
+              />
             </div>
+            {!collapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-white truncate">{displayName}</p>
+                <p className="text-[10px] text-emerald-300/70 truncate">{displayRole}</p>
+              </div>
+            )}
+          </div>
+
+          {!collapsed && (
+            <button
+              onClick={onLogout ? onLogout : () => handleItemClick('settings')}
+              className="text-emerald-400/70 hover:text-rose-400 p-1.5 rounded-md hover:bg-emerald-900/40 transition-colors ml-1 cursor-pointer"
+              title="Sign out of Quenoxa"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           )}
         </div>
-
-        {!collapsed && (
-          <button
-            onClick={() => handleItemClick('settings')}
-            className="text-emerald-400/70 hover:text-white p-1 rounded-md hover:bg-emerald-900/40 transition-colors ml-1 cursor-pointer"
-            title="Log out or settings"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <>

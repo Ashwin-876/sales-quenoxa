@@ -6,9 +6,11 @@ import {
   Bell,
   UploadCloud,
   RotateCcw,
-  Menu
+  Menu,
+  LogOut
 } from 'lucide-react';
 import { ViewKey } from './Sidebar';
+import { AuthUser } from '../../../../shared/types.js';
 
 interface HeaderProps {
   currentView: ViewKey;
@@ -21,6 +23,8 @@ interface HeaderProps {
   onResetData?: () => void;
   isResetting?: boolean;
   dueTodayCount?: number;
+  currentUser?: AuthUser | null;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -29,7 +33,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenMobileNav,
   onResetData,
   isResetting,
-  dueTodayCount = 0
+  dueTodayCount = 0,
+  currentUser,
+  onLogout
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [dateRange, setDateRange] = useState('Oct 26, 2026');
@@ -163,14 +169,32 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </button>
 
-        {/* User Profile Avatar "AK" (Desktop) */}
+        {/* User Profile Avatar Initials (Desktop) */}
         <button
           onClick={() => onNavigate('settings')}
           className="hidden sm:flex w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs items-center justify-center shadow-xs hover:ring-2 hover:ring-emerald-500/40 transition-all cursor-pointer"
-          title="Ashwin Kumar (Settings)"
+          title={`${currentUser?.fullName || 'User'} (${currentUser?.role || 'Admin'})`}
         >
-          AK
+          {currentUser?.fullName
+            ? currentUser.fullName
+                .split(' ')
+                .map((n) => n[0])
+                .join('')
+                .substring(0, 2)
+                .toUpperCase()
+            : 'AK'}
         </button>
+
+        {/* Header Quick Logout */}
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="hidden sm:flex p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+            title="Sign Out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        )}
 
         {/* ========================================================== */}
         {/* 4. HAMBURGER MENU BUTTON ON MOBILE (REQUIREMENT 2 & 4)     */}

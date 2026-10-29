@@ -51,6 +51,8 @@ export function initDatabase() {
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
+      username TEXT UNIQUE,
+      password TEXT DEFAULT 'admin123',
       full_name TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'sales_rep',
       team_id TEXT REFERENCES teams(id) ON DELETE SET NULL,
@@ -537,6 +539,17 @@ export function initDatabase() {
   try { db.exec("ALTER TABLE customer_analyses ADD COLUMN sales_strategy TEXT;"); } catch {}
   try { db.exec("ALTER TABLE customer_analyses ADD COLUMN data_quality TEXT;"); } catch {}
 
+  // Ensure users table has username and password columns
+  try { db.exec("ALTER TABLE users ADD COLUMN username TEXT;"); } catch {}
+  try { db.exec("ALTER TABLE users ADD COLUMN password TEXT DEFAULT 'admin123';"); } catch {}
+  try {
+    db.prepare("UPDATE users SET username = 'ashwin', password = 'admin123' WHERE email = 'ashwin@quenoxa.com' AND (username IS NULL OR password IS NULL)").run();
+    db.prepare("UPDATE users SET username = 'karthik', password = 'admin123' WHERE email = 'karthik.sales@quenoxa.com' AND (username IS NULL OR password IS NULL)").run();
+    db.prepare("UPDATE users SET username = 'priya', password = 'admin123' WHERE email = 'priya.n@quenoxa.com' AND (username IS NULL OR password IS NULL)").run();
+    db.prepare("UPDATE users SET username = 'suresh', password = 'admin123' WHERE email = 'suresh.ai@quenoxa.com' AND (username IS NULL OR password IS NULL)").run();
+    db.prepare("UPDATE users SET password = 'admin123' WHERE password IS NULL").run();
+  } catch {}
+
   // Performance indexes for service recommendations, analyses, and catalog
   try { db.exec("CREATE INDEX IF NOT EXISTS idx_service_recs_record_id ON service_recommendations(record_id);"); } catch {}
   try { db.exec("CREATE INDEX IF NOT EXISTS idx_service_recs_service_id ON service_recommendations(service_id);"); } catch {}
@@ -781,10 +794,31 @@ function seedDefaultUsersAndTeams() {
     VALUES (?, ?, ?)
   `).run(teamId, 'Quenoxa Global Sales & Engineering', 'Primary revenue and technical delivery division');
 
+  // Ensure users table has username and password columns
+  try {
+    const cols = db.prepare('PRAGMA table_info(users)').all() as any[];
+    const colNames = cols.map(c => c.name);
+    if (!colNames.includes('username')) {
+      db.prepare('ALTER TABLE users ADD COLUMN username TEXT').run();
+    }
+    if (!colNames.includes('password')) {
+      db.prepare("ALTER TABLE users ADD COLUMN password TEXT DEFAULT 'admin123'").run();
+    }
+    db.prepare("UPDATE users SET username = 'ashwin', password = 'admin123' WHERE email = 'ashwin@quenoxa.com' AND (username IS NULL OR password IS NULL)").run();
+    db.prepare("UPDATE users SET username = 'karthik', password = 'admin123' WHERE email = 'karthik.sales@quenoxa.com' AND (username IS NULL OR password IS NULL)").run();
+    db.prepare("UPDATE users SET username = 'priya', password = 'admin123' WHERE email = 'priya.n@quenoxa.com' AND (username IS NULL OR password IS NULL)").run();
+    db.prepare("UPDATE users SET username = 'suresh', password = 'admin123' WHERE email = 'suresh.ai@quenoxa.com' AND (username IS NULL OR password IS NULL)").run();
+    db.prepare("UPDATE users SET password = 'admin123' WHERE password IS NULL").run();
+  } catch (migErr) {
+    console.warn('Users migration note:', migErr);
+  }
+
   const defaultUsers = [
     {
       id: uuidv4(),
       email: 'ashwin@quenoxa.com',
+      username: 'ashwin',
+      password: 'admin123',
       fullName: 'Ashwin Kumar',
       role: 'admin',
       teamId,
@@ -793,6 +827,8 @@ function seedDefaultUsersAndTeams() {
     {
       id: uuidv4(),
       email: 'karthik.sales@quenoxa.com',
+      username: 'karthik',
+      password: 'admin123',
       fullName: 'Karthik Subramanian',
       role: 'sales_manager',
       teamId,
@@ -801,6 +837,8 @@ function seedDefaultUsersAndTeams() {
     {
       id: uuidv4(),
       email: 'priya.n@quenoxa.com',
+      username: 'priya',
+      password: 'admin123',
       fullName: 'Priya Narayanan',
       role: 'sales_rep',
       teamId,
@@ -809,6 +847,8 @@ function seedDefaultUsersAndTeams() {
     {
       id: uuidv4(),
       email: 'suresh.ai@quenoxa.com',
+      username: 'suresh',
+      password: 'admin123',
       fullName: 'Suresh Varma',
       role: 'business_analyst',
       teamId,
@@ -817,12 +857,12 @@ function seedDefaultUsersAndTeams() {
   ];
 
   const stmt = db.prepare(`
-    INSERT INTO users (id, email, full_name, role, team_id, avatar_url)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO users (id, email, username, password, full_name, role, team_id, avatar_url)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const u of defaultUsers) {
-    stmt.run(u.id, u.email, u.fullName, u.role, u.teamId, u.avatarUrl);
+    stmt.run(u.id, u.email, u.username, u.password, u.fullName, u.role, u.teamId, u.avatarUrl);
   }
 }
 

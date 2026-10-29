@@ -568,6 +568,16 @@ export interface CallLog {
   notes: string;
 }
 
+export interface AuthUser {
+  id: string;
+  email: string;
+  username?: string;
+  fullName: string;
+  role: 'Admin' | 'Sales Manager' | 'Sales Rep' | 'Business Analyst' | string;
+  avatarUrl?: string;
+  token?: string;
+}
+
 export interface TeamMember {
   id: string;
   name: string;

@@ -17,10 +17,20 @@ import { ReportsAnalyticsView } from './views/ReportsAnalyticsView';
 import { ServiceCatalogView } from './views/ServiceCatalogView';
 import { TeamManagementView } from './views/TeamManagementView';
 import { SettingsView } from './views/SettingsView';
-import { ExtractedRecord, DashboardMetrics } from '../../shared/types.js';
+import { LoginView } from './views/LoginView';
+import { ExtractedRecord, DashboardMetrics, AuthUser } from '../../shared/types.js';
 import { api } from './services/api';
 
 export const App: React.FC = () => {
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
+    try {
+      const saved = localStorage.getItem('quenoxa_auth_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [currentView, setCurrentView] = useState<ViewKey>('dashboard');
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(true);
@@ -30,6 +40,15 @@ export const App: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+    } catch {}
+    localStorage.removeItem('quenoxa_auth_user');
+    localStorage.removeItem('quenoxa_token');
+    setCurrentUser(null);
+  };
 
   const fetchDashboardMetrics = async () => {
     setMetricsLoading(true);
@@ -99,6 +118,10 @@ export const App: React.FC = () => {
     }
   };
 
+  if (!currentUser) {
+    return <LoginView onLoginSuccess={(user) => setCurrentUser(user)} />;
+  }
+
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans text-slate-900">
       {/* Sidebar Navigation (Responsive: Mobile Drawer + Collapsible Desktop) */}
@@ -117,6 +140,8 @@ export const App: React.FC = () => {
         onCloseMobile={() => setIsMobileNavOpen(false)}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(prev => !prev)}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
@@ -136,6 +161,8 @@ export const App: React.FC = () => {
           onResetData={handleResetAccountData}
           isResetting={isResetting}
           dueTodayCount={metrics?.followUpsDueToday || 0}
+          currentUser={currentUser}
+          onLogout={handleLogout}
         />
 
         {/* Dynamic View Router */}
